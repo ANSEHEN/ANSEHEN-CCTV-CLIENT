@@ -67,14 +67,7 @@ main( )
 	printf("received Data : %s\n", rcvBuffer);
 
 // file
-	//addrlen = sizeof(clientaddr);
-	//c_socket = accept(listen_sock, (struct sockaddr *)&clientaddr, &addrlen);
-	//if(c_socket < 0){
-	//	err_display("accept()");
-	//	break;
-	//}
-	//printf("\nfileclient 접속: IP 주소=%s, 포트 번호=%d\n",
-//		inet_ntoa(clientaddr.sin_addr), ntohs(clientaddr.sin_port));
+
 
 	// 파일 이름 받기
 	char filename[256+1];
