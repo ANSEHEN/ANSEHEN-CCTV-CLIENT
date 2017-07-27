@@ -6,11 +6,21 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
+#include <mysql.h>
 
 #define PORT 9002
 #define IPADDR "192.168.1.49"
 
 #define BUFSIZE 1024
+
+#define ARG_MAX 6
+const char *host = (char*)"localhost";
+const char *user = (char*)"root";
+const char *pw = (char*)"bitiotansehen";
+const char *db = (char*)"ansehen";
+char    buffer[BUFSIZ];
+int max_cctv;
+
 
 // 소켓 함수 오류 출력 후 종료
 void err_quit(const char *msg)
@@ -33,13 +43,23 @@ int search_file(const char *filename)
 
 main( )
 {
-	int	c_socket;
-	struct sockaddr_in c_addr;
+	int	c_socket, s_socket;
+	struct sockaddr_in c_addr, s_addr;
 	int	len;
 	int	n;
-	
+
+	MYSQL *connection;
+        MYSQL_RES  *sql_result;
+        MYSQL_ROW sql_row;
+
+        char query[BUFSIZ];
+	char *ptr;
+	char c_buff[ARG_MAX][BUFSIZ];
 	char	rcvBuffer[BUFSIZ];
 	
+	char cctv_id[5];
+	char ip_add[20];
+
 	c_socket = socket(PF_INET, SOCK_STREAM, 0);
 	
 	memset(&c_addr, 0, sizeof(c_addr));
@@ -53,9 +73,48 @@ main( )
 		return -1;
 	}
 
-
+	
 	socklen_t addrlen;
 	char buf[BUFSIZE];
+
+
+//mysql 에서 cctv 정보 읽어오기
+	connection = mysql_init(NULL);
+        if(!mysql_real_connect(connection,host,user,pw,db,0,NULL,0))
+        {
+                fprintf(stderr,"%s\n",mysql_error(connection));
+		exit(1);
+        }
+
+        	//send sql query
+
+
+        if(mysql_query(connection, "select * from CCTV_INFO"))
+        {
+                fprintf(stderr,"%s\n",mysql_error(connection));
+                exit(1);
+        }
+        sql_result = mysql_use_result(connection);
+
+        	//output table name
+        printf("MySQL Tables in mysql database:\n");
+        while((sql_row=mysql_fetch_row(sql_result))!=NULL)
+        {        
+		printf("cctv_id : %s\n",sql_row[0]);
+		strcpy(cctv_id, sql_row[0]);
+		printf("ip_address : %s\n",sql_row[2]);
+		strcpy(ip_add, sql_row[2]);
+	}
+
+        mysql_free_result(sql_result);
+
+// send 넣어주기
+
+	send(c_socket, cctv_id, strlen(cctv_id)+1, 0);
+	send(c_socket, ip_add, strlen(ip_add)+1, 0);
+	printf("ip_address : %s\n",ip_add);
+
+///////////////////////
 
 	/// unique key
 	
@@ -66,7 +125,7 @@ main( )
 	rcvBuffer[n] = '\0';
 	printf("received Data : %s\n", rcvBuffer);
 
-// file
+// file ( while 문 안에 넣어 주기 )
 
 
 	// 파일 이름 받기
