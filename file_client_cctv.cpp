@@ -110,9 +110,9 @@ main( )
 
 // send 넣어주기
 
-	send(c_socket, cctv_id, strlen(cctv_id)+1, 0);
-	send(c_socket, ip_add, strlen(ip_add)+1, 0);
-	printf("ip_address : %s\n",ip_add);
+//	send(c_socket, cctv_id, strlen(cctv_id)+1, 0);
+//	send(c_socket, ip_add, strlen(ip_add)+1, 0);
+//	printf("ip_address : %s\n",ip_add);
 
 ///////////////////////
 
@@ -129,8 +129,8 @@ main( )
 
 
 	// 파일 이름 받기
-	char filename[256+1];
-	int retval = recv(c_socket, filename, 256, MSG_WAITALL);
+	char filename[256];
+	int retval = recv(c_socket, filename, 256, 0);
 	if(retval < 0){
 		err_display("recv()");
 		close(c_socket);
