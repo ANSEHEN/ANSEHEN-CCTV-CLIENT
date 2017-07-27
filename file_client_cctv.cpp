@@ -40,7 +40,7 @@ int search_file(const char *filename)
 {
 	return (access(filename, F_OK) == 0);
 }
-
+void dataToCCTV(char *unique_key, char * filename);
 main( )
 {
 	int	c_socket, s_socket;
@@ -206,7 +206,10 @@ main( )
 
 		// 전송 결과 출력
 		if(numtotal == totalbytes)
+		{
 			printf("-> 파일 전송 완료!\n");
+			dataToCCTV(rcvBuffer, filename);
+		}
 		else
 			printf("-> 파일 전송 실패!\n");
 
@@ -218,4 +221,34 @@ main( )
 
 	
 	close(c_socket);
+}
+void dataToCCTV(char *unique_key, char * image_add)
+{
+	MYSQL *connection;
+        MYSQL_RES  *sql_result;
+        MYSQL_ROW sql_row;
+	char query[BUFSIZ];
+
+	
+	connection = mysql_init(NULL);
+        if(!mysql_real_connect(connection,host,user,pw,db,0,NULL,0))
+        {
+                fprintf(stderr,"%s\n",mysql_error(connection));
+		exit(1);
+        }
+
+        //send sql query
+	
+	sprintf(query,"insert into USER_INFO_CCTV values ('%s', '%s')",unique_key,image_add);
+        if(mysql_query(connection,query))
+        {
+                fprintf(stderr,"%s\n",mysql_error(connection));
+                exit(1);
+        }
+      
+	
+
+	printf("unique_key : %s\n", unique_key);
+	printf("image_add : %s\n", image_add);
+
 }
