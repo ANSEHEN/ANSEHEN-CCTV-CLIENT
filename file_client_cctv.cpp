@@ -7,6 +7,14 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <mysql.h>
+#include <iostream>
+
+
+class Data{
+	public: 
+	char unique_key[100];
+	char image_addr[200];
+};
 
 #define PORT 9002
 #define IPADDR "192.168.1.49"
@@ -21,6 +29,7 @@ const char *db = (char*)"ansehen";
 char    buffer[BUFSIZ];
 int max_cctv;
 
+using namespace std;
 
 // 소켓 함수 오류 출력 후 종료
 void err_quit(const char *msg)
@@ -43,8 +52,8 @@ int search_file(const char *filename)
 void dataToCCTV(char *unique_key, char * filename);
 main( )
 {
-	int	c_socket, s_socket;
-	struct sockaddr_in c_addr, s_addr;
+	int	c_socket;
+	struct sockaddr_in c_addr;
 	int	len;
 	int	n;
 
@@ -60,14 +69,16 @@ main( )
 	char cctv_id[5];
 	char ip_add[20];
 
-	c_socket = socket(PF_INET, SOCK_STREAM, 0);
+//PF_INET , AF_INET 차이는 ???
+
+	c_socket = socket(AF_INET, SOCK_STREAM, 0);
 	
 	memset(&c_addr, 0, sizeof(c_addr));
 	c_addr.sin_addr.s_addr = inet_addr(IPADDR);
 	c_addr.sin_family = AF_INET;
 	c_addr.sin_port = htons(PORT);
 	
-	if(connect(c_socket, (struct sockaddr *) &c_addr, sizeof(c_addr))==-1) {
+	if(connect(c_socket, (struct sockaddr *) &c_addr, sizeof(c_addr))<0) {
 		printf("Can not connect\n");
 		close(c_socket);
 		return -1;
@@ -114,30 +125,43 @@ main( )
 //	send(c_socket, ip_add, strlen(ip_add)+1, 0);
 //	printf("ip_address : %s\n",ip_add);
 
-///////////////////////
+/////////////////////// 
 
-	/// unique key
-	
-	if((n = read(c_socket, rcvBuffer, sizeof(rcvBuffer))) < 0) {
-		return (-1);
-	}
-	
-	rcvBuffer[n] = '\0';
-	printf("received Data : %s\n", rcvBuffer);
+
+
 
 // file ( while 문 안에 넣어 주기 )
 
 
 	// 파일 이름 받기
+	/*
+	
+	int retval;
+	memset(filename, 0, sizeof(filename));
+	*/
+	Data data;
+	char unique_key[100];
 	char filename[256];
-	int retval = recv(c_socket, filename, 256, 0);
+
+	int retval = recv(c_socket, &data, sizeof(data),0);
+	
+
+	cout<<"after recv"<<endl;
+
 	if(retval < 0){
 		err_display("recv()");
 		close(c_socket);
 //		continue;
 	}
+
+	/*
 	filename[retval] = '\0';
 	printf("-> 받을 파일 이름: %s\n", filename);
+	*/
+	
+	printf("%s %s\n", data.unique_key, data.image_addr);
+	strcpy(filename, data.image_addr);
+	strcpy(rcvBuffer, data.unique_key);
 
 	// 파일 검색
 	int currbytes = 0;
@@ -164,7 +188,7 @@ main( )
 
 	// 전송 받을 데이터 크기 받기
 	int totalbytes;
-	retval = recv(c_socket, (char *)&totalbytes, sizeof(totalbytes), MSG_WAITALL);
+	retval = recv(c_socket, (char *)&totalbytes, sizeof(totalbytes), 0);
 	if(retval < 0){
 		err_display("recv()");
 		close(c_socket);
@@ -208,14 +232,22 @@ main( )
 		if(numtotal == totalbytes)
 		{
 			printf("-> 파일 전송 완료!\n");
-			dataToCCTV(rcvBuffer, filename);
+			
 		}
 		else
 			printf("-> 파일 전송 실패!\n");
 
 
+	/// unique key
+	/*
+	if((n = read(c_socket, rcvBuffer, sizeof(rcvBuffer))) < 0) {
+		return (-1);
+	}
+	
+	rcvBuffer[n] = '\0';*/
 
-
+	printf("received Data : %s\n", rcvBuffer);
+	dataToCCTV(rcvBuffer, filename);
 
 
 
