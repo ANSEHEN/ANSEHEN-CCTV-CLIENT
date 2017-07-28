@@ -130,93 +130,105 @@ main( )
 
 // file ( while 문 안에 넣어 주기 )
 
-	//class로 data 받기
-	Data data;
-	char unique_key[100];
-	char filename[256];
+	while(1){
+		//class로 data 받기
+		Data data;
+		char unique_key[100];
+		char filename[256];
+		
+		bzero(&data, sizeof(data));
 
-	int retval = recv(c_socket, &data, sizeof(data),0);
-	if(retval < 0){
-		err_display("recv()");
-		close(c_socket);
-	//	continue;
-	}
-	strcpy(filename, data.image_addr);
-	strcpy(unique_key, data.unique_key);
+		int retval = recv(c_socket, &data, sizeof(data),MSG_WAITALL);
+		if(retval < 0){
+			err_display("recv()");
+			close(c_socket);
+			continue;
+		}
+		else{
+			printf("got data\n");
+		}
+		strcpy(filename, data.image_addr);
+		strcpy(unique_key, data.unique_key);
+	
+		// 파일 검색
+		int currbytes = 0;
+		if(search_file(filename)){
+			// 현재의 파일 크기 얻기
+			FILE *fp = fopen(filename, "rb");
+			if(fp == NULL){
+				perror("파일 입출력 오류");
+				close(c_socket);
+				continue;
+			}
+			fseek(fp, 0, SEEK_END);
+			currbytes = ftell(fp);
+			fclose(fp);
+		}
 
-	// 파일 검색
-	int currbytes = 0;
-	if(search_file(filename)){
-		// 현재의 파일 크기 얻기
-		FILE *fp = fopen(filename, "rb");
+		// 전송을 시작할 위치(=현재의 파일 크기) 보내기 (이어받기)
+		retval = send(c_socket, (char *)&currbytes, sizeof(currbytes), 0);
+		if(retval < 0){
+			err_display("send()");
+			close(c_socket);
+			continue;
+		}
+
+		// 전송 받을 데이터 크기 받기
+		int totalbytes;
+		retval = recv(c_socket, (char *)&totalbytes, sizeof(totalbytes), 0);
+		if(retval < 0){
+			err_display("recv()");
+			close(c_socket);
+			continue;
+		}
+		printf("-> 전송 받을 데이터 크기: %d 바이트 중 %d 바이트\n"
+			       "                         (%d 바이트는 이미 받음)\n",
+				currbytes+totalbytes, totalbytes, currbytes);
+
+		// 파일 열기
+		FILE *fp = fopen(filename, "ab"); // append & binary mode
 		if(fp == NULL){
 			perror("파일 입출력 오류");
 			close(c_socket);
-	//		continue;
+			continue;
 		}
-		fseek(fp, 0, SEEK_END);
-		currbytes = ftell(fp);
-		fclose(fp);
-	}
 
-	// 전송을 시작할 위치(=현재의 파일 크기) 보내기 (이어받기)
-	retval = send(c_socket, (char *)&currbytes, sizeof(currbytes), 0);
-	if(retval < 0){
-		err_display("send()");
-		close(c_socket);
-	//	continue;
-	}
-
-	// 전송 받을 데이터 크기 받기
-	int totalbytes;
-	retval = recv(c_socket, (char *)&totalbytes, sizeof(totalbytes), 0);
-	if(retval < 0){
-		err_display("recv()");
-		close(c_socket);
-	//	continue;
-	}
-	printf("-> 전송 받을 데이터 크기: %d 바이트 중 %d 바이트\n"
-		       "                         (%d 바이트는 이미 받음)\n",
-			currbytes+totalbytes, totalbytes, currbytes);
-
-	// 파일 열기
-	FILE *fp = fopen(filename, "ab"); // append & binary mode
-	if(fp == NULL){
-		perror("파일 입출력 오류");
-		close(c_socket);
-	//	continue;
-	}
-
-	// 파일 데이터 받기
-	int numtotal = 0;
-	while(1){
-		retval = recv(c_socket, buf, BUFSIZE, MSG_WAITALL);
-		if(retval > 0){	
-			fwrite(buf, 1, retval, fp);
-			if(ferror(fp)){
-				perror("파일 입출력 오류");
-					break;
+		// 파일 데이터 받기
+		int numtotal = 0;
+		while(1){
+			if(numtotal == totalbytes){
+				break;
 			}
+			retval = recv(c_socket, buf, BUFSIZE, 0);
+			printf("retval : %d\n",retval);
+			if(retval > 0){	
+				fwrite(buf, 1, retval, fp);
+				if(ferror(fp)){
+					perror("파일 입출력 오류");
+					break;
+				}
 			numtotal += retval;
+			}
+			else if(retval == 0){
+				break;
+			}
+			else{
+				err_display("recv()");
+				break;
+			}
 		}
-		else if(retval == 0){
-			break;
+		fclose(fp);
+
+		// 전송 결과 출력
+		if(numtotal == totalbytes)
+		{
+			printf("-> 파일 전송 완료!\n");
+			dataToCCTV(unique_key, filename);
 		}
 		else{
-			err_display("recv()");
-			break;
+			printf("-> 파일 전송 실패!\n");
 		}
 	}
-	fclose(fp);
-
-	// 전송 결과 출력
-	if(numtotal == totalbytes)
-	{
-		printf("-> 파일 전송 완료!\n");
-		dataToCCTV(unique_key, filename);
-	}
-	else
-		printf("-> 파일 전송 실패!\n");
 	close(c_socket);
 }
 void dataToCCTV(char *unique_key, char * image_add)
