@@ -9,23 +9,33 @@
 #include <mysql.h>
 #include <iostream>
 
+#include <sys/ipc.h>
+#include <sys/msg.h>
+
 class Data{
 	public: 
 	char unique_key[100];
 	char image_addr[200];
 };
-
-
 class Cctv_data
 {
 	public: 
 		char cctv_id [5];
 		char ip [20];
 };
+class mbuf {
+	public :
+	long mtype;
+	char buf[100];
+	char unique_key[100];
+	char image_addr[200];
+};
+
 #define PORT 9002
 #define IPADDR "192.168.1.49"
 #define BUFSIZE 1024
 #define ARG_MAX 6
+const int type = 1;
 const char *host = (char*)"localhost";
 const char *user = (char*)"root";
 const char *pw = (char*)"bitiotansehen";
@@ -54,6 +64,7 @@ int search_file(const char *filename)
 	return (access(filename, F_OK) == 0);
 }
 void dataToCCTV(char *unique_key, char * filename);
+void SendMsgToCCTV(char *unique_key, char * filename);
 
 main( )
 {
@@ -81,7 +92,7 @@ main( )
 	
 	if(connect(c_socket, (struct sockaddr *) &c_addr, sizeof(c_addr))<0) {
 		printf("Can not connect\n");
-		close(c_socket);
+	  	close(c_socket);
 		return -1;
 	}
 	socklen_t addrlen;
@@ -224,6 +235,7 @@ main( )
 		{
 			printf("-> 파일 전송 완료!\n");
 			dataToCCTV(unique_key, filename);
+			SendMsgToCCTV(unique_key, filename);
 		}
 		else{
 			printf("-> 파일 전송 실패!\n");
@@ -259,5 +271,15 @@ void dataToCCTV(char *unique_key, char * image_add)
 
 	printf("unique_key : %s\n", unique_key);
 	printf("image_add : %s\n", image_add);
-
 }
+void SendMsgToCCTV(char *t_unique_key, char * t_image_add)
+{
+	int msgid = msgget(1234, IPC_CREAT);
+
+	mbuf msg;
+	msg.mtype = type;
+	strcpy(msg.unique_key,t_unique_key);
+	strcpy(msg.image_addr, t_image_add);
+	msgsnd(msgid, (void*)&msg, sizeof(mbuf), 0);
+}
+
