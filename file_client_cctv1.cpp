@@ -1,3 +1,5 @@
+g++ file_client_cctv.cpp -o file_client_cctv -lzmq $(mysql_config --cflags) $(mysql_config --libs)
+
 #include <stdio.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
