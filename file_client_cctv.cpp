@@ -245,34 +245,36 @@ main( )
 		
 	//intercommunication between python and c++ using zmq
 	
-		/*	void *context = zmq_ctx_new ();
-			void *responder = zmq_socket (context, ZMQ_REP);
-			void *respond = zmq_socket (context, ZMQ_REP);
-			int rc = zmq_bind (responder, "tcp://*:5555");
-			//assert (rc == 0);    
-			char buffer [40]={0,},sbuff [40]={0,}, rbuff [40]={0,};
-			
-			zmq_recv (responder, buffer, 20, 0);
-			printf("python3 받음 buffer: %s\n",buffer);
-		
-			//문자열 받기,  filename
-			strcpy( rbuff, data.image_addr);
-		        printf("파일이름 받기rbuff : %s\n",rbuff);
-			
-			usleep (100);          //  Do some 'work'
-		        
-			//문자열 보내, filename
-			snprintf(sbuff,sizeof(sbuff), "%s", rbuff);
-		        printf ("filename 보내:<%s>\n", sbuff);
-		        zmq_send (responder, sbuff, strlen(sbuff), 0);
-		 */
+   
+		 
 		    
-			fclose(fp);
+		fclose(fp);
 		
 			// 전송 결과 출력
 			if(numtotal == totalbytes)
 			{
 				printf("-> 파일 전송 완료!\n");
+
+ 				void *context = zmq_ctx_new ();
+   				void *responder = zmq_socket (context, ZMQ_REQ);
+   				int rc = zmq_bind (responder, "tcp://*:5555");
+  				//assert (rc == 0);
+        
+     				char buffer [40]={0,},sbuff [40]={0,}, rbuff [40]={0,};
+			  	//문자열 받기,  filename
+				strcpy( rbuff, data.image_addr);
+    		 		printf("파일이름 받기rbuff : %s\n",rbuff);
+		
+			 	usleep (100);          //  Do some 'work'
+        
+				//문자열 보내, filename
+				snprintf(sbuff,sizeof(sbuff), "%s", rbuff);
+        			printf ("filename 보내:<%s>\n", sbuff);
+   			        zmq_send (responder, sbuff, strlen(sbuff), 0);
+				printf ("filename 보낸후:<%s>\n", sbuff);
+				zmq_recv (responder, buffer, 20, 0);
+				printf("python3 받음 buffer: %s\n",buffer);
+				
 				dataToCCTV(unique_key, filename);
 				SendMsgToCCTV(unique_key, filename);
 			}
@@ -289,7 +291,7 @@ main( )
 			char unique_key[100];
 
 	
-			int retval = recv(c_socket, unique_key, sizeof(unique_key),MSG_WAITALL);
+			int retval = recv(c_socket, unique_key, sizeof(unique_key),0);
 			printf("unique_key_beacon signal : %s\n",unique_key);
 			
 			
