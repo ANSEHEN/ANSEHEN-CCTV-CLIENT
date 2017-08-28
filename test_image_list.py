@@ -4,25 +4,21 @@ import os
 import struct
 import threading
 
-
-
-
 # global list
 crop_encoding = {}
 known_encodings = []
 
-
-message = []
-temp = None
 filenames = []
 my_mutex = threading.Lock()
+
+
 # [target thread]
 # -------------------------------------------------------------------------------------
-    # recv filename  
+# recv filename  
 def zero_message():
        
-    global temp
     global my_mutex
+    i = 0
     while True:
         
         # [ zmq ] 
@@ -33,50 +29,32 @@ def zero_message():
         socket.connect("tcp://localhost:5555")
         try:
             print("wait")
-            message1 = socket.recv_string()
+            message = socket.recv_string()
             
-            temp = message1
-            print("[recv]message : ",temp)
-            my_mutex.release()
+            print("[recv]message : ",message)           
+            filenames.append(message)
             
         except zmq.error.ZMQError:
             print("error")
-             
-def target():
-    print("[target thread]")
-    global message
-    global temp
-    global my_mutex
-    
-    my_mutex.acquire()
-    if temp == None:
-        return 0
-    elif temp != message :
-        message = temp
-        print("target : temp : ", temp)
-        filenames.append(message)
-    
-    else:
-        return 0
-    
-    # save to image diction
-    target_face_encoding = {}
-    for i in range(len(filenames)):
+
+
+        # save to image diction
+        target_face_encoding = {}
         print("[target]number",i," : encoding")
-        filename = filenames[i]
-        print("[target]filename",i," : ",filename)
-        known_target_image = face_recognition.load_image_file(filename)
+        
+        
+        known_target_image = face_recognition.load_image_file(filenames[i])
         try:
+            my_mutex.acquire()
             target_face_encoding[i] = face_recognition.face_encodings(known_target_image)[0]
+            known_encodings.append(target_face_encoding[i])
+            my_mutex.release()
+            
         except IndexError:
             print('[target]cannot encoding face : ', i)
-        
-
-    #known_encodings = []
-    for j in range(len(filenames)):
-        known_encodings.append(target_face_encoding[j])
-
-
+            # user Error
+        i+=1
+            
 # ------------------------------------------------------------------------------------
 
 
@@ -85,7 +63,12 @@ def target():
 # ------------------------------------------------------------------------------------
 def crop():
     print("[crop thread]")
-    crop_messages = ['./pic/5_133.jpg','./pic/0.jpg','./pic/z23.jpg']
+    a ='./pic/5_133.jpg'
+    b='./pic/0.jpg'
+    c='./pic/z23.jpg'
+    
+    crop_messages = [a,b,c]
+    
 
     #crop_encoding = {}
     for j in range(len(crop_messages)):
@@ -108,14 +91,18 @@ def crop():
 def comparing_face():
     print("[comparing]")
     for k in crop_encoding.keys():
+        my_mutex.acquire()
         results = face_recognition.compare_faces(known_encodings, crop_encoding[k], 0.4)
+        my_mutex.release()
         print(k," comparing")
 
         for w in range(len(results)): # len(results) == len(known_encodings)
             if results[w] == True:
-                print(" [compareing]target = {}".format(results[w]) , w)
+                print(" [comparing]target = {}".format(results[w]) , w)
                 #del known_encodings[w]
                 print(filenames[w])
+                
+                
                 #msg = filenames[w]
                 #socket.send_string(msg)
                 
@@ -123,19 +110,19 @@ def comparing_face():
 # ------------------------------------------------------------------------------------
 def run_process():
     while True:
-        #zero_message()
-        target()
+    
         crop()
+        #my_mutex.acquire()
         comparing_face()
+        #my_mutex.release()
 print("start")
 #my_mutex.acquire()
-my_mutex.acquire()
-tr = threading.Thread(target = run_process)
-tr.start()
+
+t_run = threading.Thread(target = run_process)
+t_run.start()
 print('thread')
-t = threading.Thread(target = zero_message)
-#t.daemon = True
-t.run()
+t_message = threading.Thread(target = zero_message)
+t_message.run()
 
 
 
