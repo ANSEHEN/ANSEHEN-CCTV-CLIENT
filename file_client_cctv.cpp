@@ -17,6 +17,10 @@
 #include <assert.h>
 #include <sys/types.h>
 
+#include <thread>
+
+using namespace std;
+
 class Data{
 	public: 
 	char unique_key[100];
@@ -40,15 +44,21 @@ class mbuf {
 #define IPADDR "192.168.1.49"
 #define BUFSIZE 1024
 #define ARG_MAX 6
-const int type = 1;
+
+const int type_beacon = 1;
+const int type_snd = 2;
+const int type_rcv = 3;
 const char *host = (char*)"localhost";
 const char *user = (char*)"root";
 const char *pw = (char*)"bitiotansehen";
 const char *db = (char*)"ansehen";
 char    buffer[BUFSIZ];
-int max_cctv;
 
-using namespace std;
+int max_cctv;
+int msgid ;
+
+int	c_socket;
+
 
 // 소켓 함수 오류 출력 후 종료
 void err_quit(const char *msg)
@@ -71,9 +81,58 @@ int search_file(const char *filename)
 void dataToCCTV(char *unique_key, char * filename);
 void SendMsgToCCTV(char *unique_key, char * filename);
 
+void send_message(void *t)
+{
+	mbuf msg;
+	void *context = zmq_ctx_new();
+	void *responder = zmq_socket (context, ZMQ_REQ);
+	int rc = zmq_bind(responder, "tcp://*:5550");
+
+	while(1)
+	{
+		msgrcv(msgid, (void*)&msg, sizeof(mbuf), type_snd ,0);
+		char buffer [40] = {0,}, sbuff[40] = {0,} ,rbuff[40]={0,};
+
+		strcpy(sbuff, data.image_addr);
+		printf("rbuff: %s\n", rbuff);
+		usleep(100);
+
+		printf("filename send : [ %s ]\n", sbuff);
+		zmq_send (responder, sbuff, strlen(sbuff), 0);
+
+		zmq_recv (responder, buffer, 20, 0);
+	}
+}
+
+void recv_message(void *t)
+{
+	//mbuf msg;
+
+	void *context = zmq_ctx_new();
+	void *responder = zmq_socket (context, ZMQ_REQ);
+	int rc = zmq_bind(responder, "tcp://*:5570");
+
+	while(1)
+	{
+		//msgrcv(msgid, (void*)&msg, sizeof(mbuf), type_rcv ,0);
+		char buffer [40] = {0,}, sbuff[40] = {0,} ,rbuff[40]={0,};
+
+		strcpy(sbuff, "recv_ready");
+		zmq_send (responder, sbuff, strlen(sbuff), 0);
+		zmq_recv (responder, buffer, 20, 0);
+		if (strlen(buffer) > 0)
+		{
+			printf("매치 결과 : %s\n", buffer);
+			//파일서버 에게 보내줘야 할 것들 ( match 결과 buffer == image_addr )
+			//send(c_socket, buffer, strlen(buffer)+1, 0);
+			
+		}
+	}
+}
+
 main( )
 {
-	int	c_socket;
+	
 	struct sockaddr_in c_addr;
 	int	len;
 	int	n;
@@ -87,7 +146,7 @@ main( )
         MYSQL_RES  *sql_result;
         MYSQL_ROW sql_row;
 	Data data;
-
+	msgid = msgget(1234, IPC_CREAT);
 
 	//socket connect
 	c_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -135,18 +194,21 @@ main( )
         mysql_free_result(sql_result);
 
 	
-	// send 넣어주기
+	// cctv 정보 server에 보내주기 (send 넣어주기)
 	
 	Cctv_data cctv_data;
 	strcpy(cctv_data.cctv_id,cctv_id);
-	strcpy(cctv_data.ip,ip_add);
+	strcpy(cctv_data.ip,ip_add);를
 
 	send(c_socket, &cctv_data, sizeof(cctv_data), 0);
 	//send(c_socket, ip_add, strlen(ip_add)+1, 0);
 	printf("[send] cctv_id : %s \nip_address : %s\n",cctv_data.cctv_id, cctv_data.ip);
-	
 
-// file ( while 문 안에 넣어 주기 )
+// 파이썬과 통신하는 쓰레드 생성
+	thread t1(send_message, (void*)&a);
+	thread t2(recv_message, (void*)&a);
+
+// file 받는 부분 ( while 문 안에 넣어 주기 )
 
 	while(1)
 	{
@@ -242,41 +304,25 @@ main( )
 					break;
 				}
 			}
+			fclose(fp);
 		
-	//intercommunication between python and c++ using zmq
-	
-   
-		 
-		    
-		fclose(fp);
-		
+
+
+//intercommunication between python and c++ using zmq    
+
 			// 전송 결과 출력
 			if(numtotal == totalbytes)
 			{
 				printf("-> 파일 전송 완료!\n");
-
- 				void *context = zmq_ctx_new ();
-   				void *responder = zmq_socket (context, ZMQ_REQ);
-   				int rc = zmq_bind (responder, "tcp://*:5555");
-  				//assert (rc == 0);
-        
-     				char buffer [40]={0,},sbuff [40]={0,}, rbuff [40]={0,};
-			  	//문자열 받기,  filename
-				strcpy( rbuff, data.image_addr);
-    		 		printf("파일이름 받기rbuff : %s\n",rbuff);
-		
-			 	usleep (100);          //  Do some 'work'
-        
-				//문자열 보내, filename
-				snprintf(sbuff,sizeof(sbuff), "%s", rbuff);
-        			printf ("filename 보내:<%s>\n", sbuff);
-   			        zmq_send (responder, sbuff, strlen(sbuff), 0);
-				printf ("filename 보낸후:<%s>\n", sbuff);
-				zmq_recv (responder, buffer, 20, 0);
-				printf("python3 받음 buffer: %s\n",buffer);
+				mbuf msg;
+				msg.mtype = type_snd;
+				strcpy(msg.image_addr, filename);
+				msgsnd(msgid, (void*)&msg, sizeof(mbuf), 0);
+ 				
+				
 				
 				dataToCCTV(unique_key, filename);
-				SendMsgToCCTV(unique_key, filename);
+				
 			}
 			else
 			{
@@ -294,11 +340,12 @@ main( )
 			int retval = recv(c_socket, unique_key, sizeof(unique_key),0);
 			printf("unique_key_beacon signal : %s\n",unique_key);
 			
-			
+			SendMsgToCCTV(unique_key, filename);
 		}
 	}
 	close(c_socket);
 }
+//DB에    unique key, image_add(filename)저장 하기
 void dataToCCTV(char *unique_key, char * image_add)
 {
 	MYSQL *connection;
@@ -326,12 +373,13 @@ void dataToCCTV(char *unique_key, char * image_add)
 	printf("unique_key : %s\n", unique_key);
 	printf("image_add : %s\n", image_add);
 }
+//비컨 신호가 왔을때 cctv detect 동작하라고 신호 보내기 !
 void SendMsgToCCTV(char *t_unique_key, char * t_image_add)
 {
-	int msgid = msgget(1234, IPC_CREAT);
+	
 
 	mbuf msg;
-	msg.mtype = type;
+	msg.mtype = type_beacon;
 	strcpy(msg.unique_key,t_unique_key);
 	strcpy(msg.image_addr, t_image_add);
 	msgsnd(msgid, (void*)&msg, sizeof(mbuf), 0);
