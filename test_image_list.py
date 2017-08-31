@@ -5,15 +5,16 @@ import struct
 import threading
 
 # global list
-crop_encodings = []
+crop_encodings = {}
 known_encodings = []
 
 filenames = []
 my_mutex = threading.Lock()
+my_mutex1= threading.Lock()
 
 count = 0
 match = None
-act = 0
+
 # [target thread]
 # -------------------------------------------------------------------------------------
 # recv filename  
@@ -32,45 +33,36 @@ def target_thread():
         print("[TARGET] --- Connecting... ")
         socket = context.socket(zmq.REP) #받는 부분이 REP
         socket.connect("tcp://localhost:5550")
+              
+        try:
+            print("[TARGET] wait")
+            message = socket.recv_string()
         
-        if match == None:         
-            try:
-                print("[TARGET] wait")
-                message = socket.recv_string()
-                match = 0
-                
-                print("[TARGET] message : ",message)           
-                filenames.append(message)
-                
-            except zmq.error.ZMQError:
-                print("[TARGET recv] error")
+            print("[TARGET] message : ",message)           
+            filenames.append(message)
+            
+        except zmq.error.ZMQError:
+            print("[TARGET recv] error")
 
 
-            # save to image diction
-            target_face_encoding = {}
+        # save to image diction
+        target_face_encoding = {}
+        
+        print("[TARGET] number : ",count," : encoding")
+        known_target_image = face_recognition.load_image_file(filenames[count])
+        
+        try:
             my_mutex.acquire()
-            print("[TARGET] number : ",count," : encoding")
-            known_target_image = face_recognition.load_image_file(filenames[count])
+            target_face_encoding= face_recognition.face_encodings(known_target_image)[0]
+            known_encodings.append(target_face_encoding)
             my_mutex.release()
-            try:
-                my_mutex.acquire()
-                target_face_encoding= face_recognition.face_encodings(known_target_image)[0]
-                known_encodings.append(target_face_encoding)
-                my_mutex.release()
                 
-            except IndexError:
-                print('[TARGET] cannot encoding face : ', count)
+        except IndexError:
+            print('[TARGET] cannot encoding face : ', count)
                 # user Error
-            count+=1
-            print('[TARGET] END')
-            
-        else:           
-            msg = match
-            socket.send_string(msg)
-            print("[SEND MATCH MESSAGE] complete send message")
-            match = None
-            
-            
+        count+=1
+        print('[TARGET] END')
+
 # ------------------------------------------------------------------------------------
 
 
@@ -78,7 +70,7 @@ def target_thread():
 # [crop thread]
 # ------------------------------------------------------------------------------------
 def crop_thread():
-    global act
+
     while True:
         print("[CROP thread]")
         
@@ -94,6 +86,7 @@ def crop_thread():
             
             print("[CROP] message : ",crop_filenames)
             crop_message  = crop_filenames.split('_')
+            crop_filenames = None
             
         except zmq.error.ZMQError:
             print("[CROP] Error")
@@ -101,6 +94,7 @@ def crop_thread():
         # crop_message[0], crop_message [1]
         crop_try = int(crop_message[0])
         crop_number = int(crop_message[1])+1
+        act = crop_number
         crop_name = []
         string1 = "_"
         string2 = ".jpg"
@@ -114,11 +108,21 @@ def crop_thread():
             crop_image = face_recognition.load_image_file(crop_name[i])
             try:
                 my_mutex.acquire()
-                crop_encodings.append(face_recognition.face_encodings(crop_image)[0])
+                crop_encodings[i] = (face_recognition.face_encodings(crop_image)[0])
                 my_mutex.release()
             except IndexError:
-                print('[CROP] cannot encoding face : ', j)
-        print('[CROP] END')
+                print('[CROP] cannot encoding face : ', i)
+                i-=1
+        msg = 'send_again'
+        
+        
+        while True:
+            if len(crop_encodings) == 0:
+                socket.send_string(msg)     
+                print('[CROP] END')
+                break
+
+            
 
     
         
@@ -131,11 +135,12 @@ def crop_thread():
 def comparing_thread():
     global match
     global count
+    
     while True:
-        if(len(known_encodings)!= 0) and (len(crop_encodings)!=0):
+        if(len(known_encodings)!= 0) and (len(crop_encodings) !=0):
             print("[comparing]")
             
-            for i in range(len(crop_encodings)):
+            for i in crop_encodings.keys():
                 my_mutex.acquire()
                 results = face_recognition.compare_faces(known_encodings, crop_encodings[i], 0.4)
                 my_mutex.release()
@@ -150,38 +155,40 @@ def comparing_thread():
                         del(filenames[w])
                         count -= 1
                         my_mutex.release()
-                        #match_send_message()
-                for x in range(len(crop_encodings)):
-                    del(crop_encodings[0])
-                    
-            my_mutex.acquire()
-            match = None
-            my_mutex.release()
+                
+                        del(crop_encodings[x])
+                
+
         
 # ------------------------------------------------------------------------------------
 
 # [match_send_message]
 # ------------------------------------------------------------------------------------
-"""
+
 def match_send_message():
     global match
-    
-    print("[SEND MATCH MESSAGE]")
-    print("[SEND MATCH MESSAGE] --- Connecting...")
-    context = zmq.Context()
-    socket = context.socket(zmq.REQ)
-    socket.connect("tcp://localhost:5550")
-    #my_mutex.acquire()
-    msg = match
-    #my_mutex.release()
-    socket.send_string(msg)
-    print("[SEND MATCH MESSAGE] complete send message")
-"""
+    while True:
+        if match != None:
+            print("[SEND MATCH MESSAGE]")
+            print("[SEND MATCH MESSAGE] --- Connecting...")
+            context = zmq.Context()
+            socket = context.socket(zmq.REQ)
+            socket.connect("tcp://localhost:5570")
+            my_mutex.acquire()
+            msg = match
+            my_mutex.release()
+            socket.send_string(msg)
+            print("[SEND MATCH MESSAGE] complete send message")
+            my_mutex.acquire()
+            match = None
+            my_mutex.release()
 
 # ------------------------------------------------------------------------------------
 
 print("[ANSEHEN START]")
 #my_mutex.acquire()
+match_th = threading.Thread(target = match_send_message)
+match_th.start()
 
 target_th= threading.Thread(target = target_thread)
 target_th.start()
@@ -191,6 +198,11 @@ crop_th.start()
 
 compare_th = threading.Thread(target = comparing_thread)
 compare_th.start()
+
+
+
+
+    
 
 """
 ------------------------------------------------------------------------------------------------------
