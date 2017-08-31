@@ -24,23 +24,23 @@ def target_thread():
     global count
     global match
     
+    # [ zmq ]  
+    context = zmq.Context()
+    # Socket to talk th server
+    print("[TARGET] --- Connecting... ")
+    socket = context.socket(zmq.REP) #받는 부분이 REP
+    socket.connect("tcp://localhost:5550")
+  
     while True:
-        print('[TARGET_thread]')
-        # [ zmq ]
-        
-        context = zmq.Context()
-        # Socket to talk th server
-        print("[TARGET] --- Connecting... ")
-        socket = context.socket(zmq.REP) #받는 부분이 REP
-        socket.connect("tcp://localhost:5550")
-              
+        print('[TARGET_thread]')                
         try:
             print("[TARGET] wait")
             message = socket.recv_string()
-        
+            
             print("[TARGET] message : ",message)           
             filenames.append(message)
-            
+            msg = 'send again'
+            socket.send_string(msg)
         except zmq.error.ZMQError:
             print("[TARGET recv] error")
 
@@ -70,94 +70,78 @@ def target_thread():
 # [crop thread]
 # ------------------------------------------------------------------------------------
 def crop_thread():
-
-    while True:
-        print("[CROP thread]")
-        
-        context = zmq.Context()
-        #Socket to talk server
-        print("[CROP] --- Connecting... ")
-        socket = context.socket(zmq.REP)
-        socket.connect("tcp://localhost:5560")
-        
-        try:
-            print("[CROP] wait")
-            crop_filenames = socket.recv_string()
-            
-            print("[CROP] message : ",crop_filenames)
-            crop_message  = crop_filenames.split('_')
-            crop_filenames = None
-            
-        except zmq.error.ZMQError:
-            print("[CROP] Error")
-       
-        # crop_message[0], crop_message [1]
-        crop_try = int(crop_message[0])
-        crop_number = int(crop_message[1])+1
-        act = crop_number
-        crop_name = []
-        string1 = "_"
-        string2 = ".jpg"
-
-        for i in range(crop_number):
-            string_i = "{}".format(i)
-            crop_name.append(crop_message[0] + string1 + string_i + string2)
-            print("[CROP] filename : ", crop_name[i])       
-            #crop_encoding = {}
-            print("[CROP] try : ", crop_try ," , encoding : ", i)
-            crop_image = face_recognition.load_image_file(crop_name[i])
-            try:
-                my_mutex.acquire()
-                crop_encodings[i] = (face_recognition.face_encodings(crop_image)[0])
-                my_mutex.release()
-            except IndexError:
-                print('[CROP] cannot encoding face : ', i)
-                i-=1
-        msg = 'send_again'
-        
-        
-        while True:
-            if len(crop_encodings) == 0:
-                socket.send_string(msg)     
-                print('[CROP] END')
-                break
-
-            
-
-    
-        
-
-# ------------------------------------------------------------------------------------
-
-
-# [comparing face]
-# ------------------------------------------------------------------------------------
-def comparing_thread():
     global match
     global count
-    
+
+    context = zmq.Context()
+    #Socket to talk server
+    print("[CROP] --- Connecting... ")
+    socket = context.socket(zmq.REP)
+    socket.connect("tcp://localhost:5560")
     while True:
-        if(len(known_encodings)!= 0) and (len(crop_encodings) !=0):
-            print("[comparing]")
+        while len(filenames) > 0:
+            print("[CROP thread]")
+            try:
+                print("[CROP] wait")
+                crop_filenames = socket.recv_string()
+                
+                print("[CROP] message : ",crop_filenames)
+                crop_message  = crop_filenames.split('_')
+                crop_filenames = None
+                
+            except zmq.error.ZMQError:
+                print("[CROP] Error")
+           
+            # crop_message[0], crop_message [1]
+            crop_try = int(crop_message[0])
+            crop_number = int(crop_message[1])+1
+            act = crop_number
+            crop_name = []
+            string1 = "_"
+            string2 = ".jpg"
+
+            for i in range(crop_number):
+                string_i = "{}".format(i)
+                crop_name.append(crop_message[0] + string1 + string_i + string2)
+                print("[CROP] filename : ", crop_name[i])       
+                #crop_encoding = {}
+                print("[CROP] try : ", crop_try ," , encoding : ", i)
+                crop_image = face_recognition.load_image_file(crop_name[i])
+                try:
+                    crop_encodings[i] = (face_recognition.face_encodings(crop_image)[0])
+                except IndexError:
+                    print('[CROP] cannot encoding face : ', i)
+
+    # [compare thread]
+    # ------------------------------------------------------------------------------------
+            if(len(known_encodings)!= 0) and (len(crop_encodings) !=0):
+                print("[comparing]")
+                
+                for i in crop_encodings.keys():
+                    my_mutex.acquire()
+                    results = face_recognition.compare_faces(known_encodings, crop_encodings[i], 0.4)
+                    print("[ ", i, "comparing ]")
+                    my_mutex.release()
+                    for w in range(len(results)):
+                        if results[w] == True:
+                            print("[comparing] target = {}".format(results[w]) , "user : " , w)
+                            print("[comparing] match user : ", filenames[w])
+                            
+                            my_mutex.acquire()
+                            match = filenames[w]
+                            my_mutex.release()
+                            my_mutex1.acquire()
+                            del(known_encodings[w])
+                            del(filenames[w])
+                            count -= 1
+                            my_mutex1.release()
+             
+                crop_encodings.clear()
             
-            for i in crop_encodings.keys():
-                my_mutex.acquire()
-                results = face_recognition.compare_faces(known_encodings, crop_encodings[i], 0.4)
-                my_mutex.release()
-                for w in range(len(results)):
-                    if results[w] == True:
-                        print("[comparing] target = {}".format(results[w]) , "user : " , w)
-                        print("[comparing] match user : ", filenames[w])
-                        
-                        my_mutex.acquire()
-                        match = filenames[w]
-                        del(known_encodings[w])
-                        del(filenames[w])
-                        count -= 1
-                        my_mutex.release()
-                
-                        del(crop_encodings[x])
-                
+            if len(crop_encodings) == 0:
+                msg = 'send_again'
+                socket.send_string(msg)     
+                print('[CROP:COMPARING] END')               
 
         
 # ------------------------------------------------------------------------------------
@@ -167,13 +151,17 @@ def comparing_thread():
 
 def match_send_message():
     global match
+    
+    print("[SEND MATCH MESSAGE]")
+    print("[SEND MATCH MESSAGE] --- Connecting...")
+    context = zmq.Context()
+    socket = context.socket(zmq.REP)
+    socket.connect("tcp://localhost:5570")
+    
     while True:
         if match != None:
-            print("[SEND MATCH MESSAGE]")
-            print("[SEND MATCH MESSAGE] --- Connecting...")
-            context = zmq.Context()
-            socket = context.socket(zmq.REQ)
-            socket.connect("tcp://localhost:5570")
+            ready = socket.recv_string()
+            print(ready)
             my_mutex.acquire()
             msg = match
             my_mutex.release()
@@ -186,7 +174,7 @@ def match_send_message():
 # ------------------------------------------------------------------------------------
 
 print("[ANSEHEN START]")
-#my_mutex.acquire()
+
 match_th = threading.Thread(target = match_send_message)
 match_th.start()
 
@@ -196,106 +184,7 @@ target_th.start()
 crop_th = threading.Thread(target = crop_thread)
 crop_th.start()
 
-compare_th = threading.Thread(target = comparing_thread)
-compare_th.start()
-
 
 
 
     
-
-"""
-------------------------------------------------------------------------------------------------------
-[ client ]
-
-#include <zmq.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <assert.h>
-#include <sys/types.h>
-
-class Data{
-	public:
-	char unique_key[100];
-	char image_addr[200];
-};
-
-
-int main(void)
-{
-	printf("[target]\n");
-	
-	char t_string[2][10] = {"obama.jpg","leeho.jpg"};
-	
-	
-	for(int count = 0 ; count <2 ; count ++)
-	{
-		Data data;
-		
-		strcpy(data.image_addr, t_string[count]);
-		
-		void *context = zmq_ctx_new();
-		void *responder = zmq_socket (context, ZMQ_REQ);
-		int rc = zmq_bind(responder, "tcp://*:5550");
-
-		char buffer [40] = {0,}, sbuff[40] = {0,} ,rbuff[40]={0,};
-
-		strcpy(rbuff, data.image_addr);
-		printf("rbuff: %s\n", rbuff);
-		usleep(100);
-
-		snprintf(sbuff, sizeof(sbuff), "%s", rbuff);
-		printf("filename send : [ %s ]\n", sbuff);
-		zmq_send (responder, sbuff, strlen(sbuff), 0);
-		zmq_recv (responder, buffer, 20, 0);
-		printf("매치 결과 : %s\n", buffer);
-
-		
-	}
-	return 0;
-}
-------------------------------------------------------------------------------------------------------
-[crop]
-
-
-#include <zmq.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <assert.h>
-#include <sys/types.h>
-
-class Data{
-	public:
-	char unique_key[100];
-	char image_addr[200];
-};
-
-int main(void)
-{
-	printf("[crop]\n");
-	char t_string[2][10] = {"0_4","1_2"};
-
-	for(int i=0 ; i<2;i++)
-	{
-		Data data;
-		strcpy(data.image_addr, t_string[i]);
-		void *context = zmq_ctx_new();
-		void *responder = zmq_socket (context, ZMQ_REQ);
-		int rc = zmq_bind(responder, "tcp://*:5560");
-
-		char buffer [40] = {0,}, sbuff[40] = {0,} ,rbuff[40]={0,};
-		
-		strcpy(rbuff, data.image_addr);
-		printf("rbuff: %s\n", rbuff);
-		usleep(100);
-		snprintf(sbuff, sizeof(sbuff), "%s", rbuff);
-		printf("filename send : [ %s ]\n", sbuff);
-		zmq_send (responder, sbuff, strlen(sbuff), 0);
-		usleep(20000);
-	}
-	return 0;
-}
-------------------------------------------------------------------------------------------------------
-"""
