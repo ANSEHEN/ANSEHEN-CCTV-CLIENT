@@ -172,9 +172,12 @@ def match_send_message():
             my_mutex.release()
 
 # ------------------------------------------------------------------------------------
-
+def run_thread():
+    crop_thread()
+    comparing_thread()
+    
 print("[ANSEHEN START]")
-
+#my_mutex.acquire()
 match_th = threading.Thread(target = match_send_message)
 match_th.start()
 
@@ -183,6 +186,9 @@ target_th.start()
 
 crop_th = threading.Thread(target = crop_thread)
 crop_th.start()
+
+#compare_th = threading.Thread(target = comparing_thread)
+#compare_th.start()
 
 
 
