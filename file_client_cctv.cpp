@@ -93,7 +93,7 @@ void send_message(void *t)
 		msgrcv(msgid, (void*)&msg, sizeof(mbuf), type_snd ,0);
 		char buffer [40] = {0,}, sbuff[40] = {0,} ,rbuff[40]={0,};
 
-		strcpy(sbuff, data.image_addr);
+		strcpy(sbuff, msg.image_addr);
 		printf("rbuff: %s\n", rbuff);
 		usleep(100);
 
@@ -198,13 +198,14 @@ main( )
 	
 	Cctv_data cctv_data;
 	strcpy(cctv_data.cctv_id,cctv_id);
-	strcpy(cctv_data.ip,ip_add);를
+	strcpy(cctv_data.ip,ip_add);
 
 	send(c_socket, &cctv_data, sizeof(cctv_data), 0);
 	//send(c_socket, ip_add, strlen(ip_add)+1, 0);
 	printf("[send] cctv_id : %s \nip_address : %s\n",cctv_data.cctv_id, cctv_data.ip);
 
 // 파이썬과 통신하는 쓰레드 생성
+	int a = 0;
 	thread t1(send_message, (void*)&a);
 	thread t2(recv_message, (void*)&a);
 
@@ -212,11 +213,11 @@ main( )
 
 	while(1)
 	{
-		int TT;
-		recv(c_socket, &TT, sizeof(TT),MSG_WAITALL);
+		int state;
+		recv(c_socket, &state, sizeof(state),MSG_WAITALL);
 		//printf("TT : %d\n",TT);
 		
-		if(TT==1)
+		if(state==1)
 		{
 			//class로 data 받기
 			Data data;
@@ -331,7 +332,7 @@ main( )
 
 		}
 		else
-		{	printf("TT==1아닐때\n");
+		{	printf("state==1아닐때\n");
 		
 		
 			char unique_key[100];
@@ -340,7 +341,8 @@ main( )
 			int retval = recv(c_socket, unique_key, sizeof(unique_key),0);
 			printf("unique_key_beacon signal : %s\n",unique_key);
 			
-			SendMsgToCCTV(unique_key, filename);
+			//SendMsgToCCTV(unique_key, filename);
+			//face detect 부분에 비컨신호 알려주는 함수 : 매개변수 변경해야함.
 		}
 	}
 	close(c_socket);
