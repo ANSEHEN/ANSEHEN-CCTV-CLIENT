@@ -113,6 +113,11 @@ void recv_message(void *t)
 	void *context = zmq_ctx_new();
 	void *responder = zmq_socket (context, ZMQ_REQ);
 	int rc = zmq_bind(responder, "tcp://*:5570");
+	MYSQL *connection;
+        MYSQL_RES  *sql_result;
+        MYSQL_ROW sql_row;
+	char query[BUFSIZ];
+	char result;
 
 	while(1)
 	{
@@ -125,11 +130,26 @@ void recv_message(void *t)
 		if (strlen(buffer) > 0)
 		{
 			printf("매치 결과 : %s\n", buffer);
-
-			//파일서버 에게 보내줘야 할 것들 ( match 결과 buffer == image_addr )
 			
-			//send(c_socket, buffer, strlen(buffer)+1, 0);
+			//db로 자료 올리기(USER_INFO_CCTV테이블에 result에 넣기 1= match 0=mismatch)
+		
+			connection = mysql_init(NULL);
+		        if(!mysql_real_connect(connection,host,user,pw,db,0,NULL,0))
+		        {
+		                fprintf(stderr,"%s\n",mysql_error(connection));
+				exit(1);
+		        }
+		
+		        //send sql query
 			
+			sprintf(query,"update USER_INFO_CCTV set result = 1 where image_add ='%s'",buffer);
+		        if(mysql_query(connection,query))
+		        {
+		                fprintf(stderr,"%s\n",mysql_error(connection));
+		                exit(1);
+		        }
+		      
+			printf("buffer : %s\n", buffer);
 		}
 	}
 }
@@ -355,9 +375,42 @@ main( )
 		{
 			mbuf detect_msg;
 			detect_msg.mtype = type_out;
-			
-			msgsnd(msgid, (void*)&detect_msg, sizeof(mbuf), 0);
+			MYSQL *connection;
+		        MYSQL_RES  *sql_result;
+		        MYSQL_ROW sql_row;
+			char query[BUFSIZ];
+			int result;
+			char unique_key[100];
 
+			int retval = recv(c_socket, unique_key, sizeof(unique_key),0);
+			printf("unique_key_beacon signal : %s\n",unique_key);
+
+			connection = mysql_init(NULL);
+		        if(!mysql_real_connect(connection,host,user,pw,db,0,NULL,0))
+		        {
+		                fprintf(stderr,"%s\n",mysql_error(connection));
+				exit(1);
+		        }
+		
+		        //send sql query
+			
+			sprintf(query,"select result from USER_INFO_CCTV where unique_key ='%s'",unique_key);
+		        if(mysql_query(connection,query))
+		        {
+		                fprintf(stderr,"%s\n",mysql_error(connection));
+		                exit(1);
+		        }
+		        sql_result = mysql_use_result(connection);
+     			sql_row=mysql_fetch_row(sql_result);
+        		result =atoi(sql_row[0]);
+			
+
+			printf("result : %d\n", result);
+			
+
+			msgsnd(msgid, (void*)&detect_msg, sizeof(mbuf), 0);
+			send(c_socket, &result, sizeof(result), 0);
+			
 			
 		}
 		else
