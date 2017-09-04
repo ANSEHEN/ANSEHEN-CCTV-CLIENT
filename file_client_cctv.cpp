@@ -48,6 +48,8 @@ class mbuf {
 const int type_beacon = 1;
 const int type_snd = 2;
 const int type_rcv = 3;
+const int type_run = 4;
+const int type_out = 5;
 const char *host = (char*)"localhost";
 const char *user = (char*)"root";
 const char *pw = (char*)"bitiotansehen";
@@ -57,7 +59,7 @@ char    buffer[BUFSIZ];
 int max_cctv;
 int msgid ;
 
-int	c_socket;
+int c_socket;
 
 
 // 소켓 함수 오류 출력 후 종료
@@ -123,7 +125,9 @@ void recv_message(void *t)
 		if (strlen(buffer) > 0)
 		{
 			printf("매치 결과 : %s\n", buffer);
+
 			//파일서버 에게 보내줘야 할 것들 ( match 결과 buffer == image_addr )
+			
 			//send(c_socket, buffer, strlen(buffer)+1, 0);
 			
 		}
@@ -320,8 +324,6 @@ main( )
 				strcpy(msg.image_addr, filename);
 				msgsnd(msgid, (void*)&msg, sizeof(mbuf), 0);
  				
-				
-				
 				dataToCCTV(unique_key, filename);
 				
 			}
@@ -331,19 +333,35 @@ main( )
 			}
 
 		}
-		else
-		{	printf("state==1아닐때\n");
-		
-		
+		else if(state == 2) //비컨 영역에  유저가 들어왔을 때
+		{	
+			mbuf detect_msg;
+			detect_msg.mtype = type_run;
+			
+			msgsnd(msgid, (void*)&detect_msg, sizeof(mbuf), 0);
+			printf("유저 등장\n");
+			
+
+
 			char unique_key[100];
 
-	
 			int retval = recv(c_socket, unique_key, sizeof(unique_key),0);
 			printf("unique_key_beacon signal : %s\n",unique_key);
 			
 			//SendMsgToCCTV(unique_key, filename);
 			//face detect 부분에 비컨신호 알려주는 함수 : 매개변수 변경해야함.
 		}
+		else if (state == 3) //비컨영역에서 벗어났을 때
+		{
+			mbuf detect_msg;
+			detect_msg.mtype = type_out;
+			
+			msgsnd(msgid, (void*)&detect_msg, sizeof(mbuf), 0);
+
+			
+		}
+		else
+			printf("state error!!!");
 	}
 	close(c_socket);
 }
@@ -375,11 +393,10 @@ void dataToCCTV(char *unique_key, char * image_add)
 	printf("unique_key : %s\n", unique_key);
 	printf("image_add : %s\n", image_add);
 }
+
 //비컨 신호가 왔을때 cctv detect 동작하라고 신호 보내기 !
 void SendMsgToCCTV(char *t_unique_key, char * t_image_add)
 {
-	
-
 	mbuf msg;
 	msg.mtype = type_beacon;
 	strcpy(msg.unique_key,t_unique_key);
