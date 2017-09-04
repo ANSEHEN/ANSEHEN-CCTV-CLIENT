@@ -11,11 +11,16 @@
 #include <string.h>
 #include <assert.h>
 #include <sys/msg.h>
+#include <sys/ipc.h>
+#include <sys/types.h>
 
 using namespace std;
 using namespace cv;
 
 mutex f_mtx;
+int msgid= msgget(1234, IPC_CREAT);
+int total_manager;
+
 
 class mbuf{
 	public :
@@ -23,23 +28,19 @@ class mbuf{
 	char buf[100];	//안씀
 	char unique_key[100];	//안씀
 	char image_addr[200];	//안씀
-}
+};
 
 class FaceManager{
  private:
-	char* face_compare[20];		//CCTV에서 검출된 얼굴 수
 	int try_num;
 	int compare_count;	//비교 얼굴 총 갯수
  public:
 	FaceManager():try_num(0),compare_count(0){}
-	~FaceManager(){
-		int i;
-		for(i=0;i<compare_count;i++){
-			delete face_compare[i];
-		}
-	}
 	void AddTryNum(){
 		try_num++;
+	}
+	void AddCompareCount(){
+		compare_count++;
 	}
 	int GetCompareCount(){
 		return compare_count;
@@ -47,22 +48,10 @@ class FaceManager{
 	int GetTryNum(){
 		return try_num;
 	}
-	void AddCompareFace(char* path){
-		int len=strlen(path)+1;
-		face_compare[compare_count]=new char[len];
-		strcpy(face_compare[compare_count],path);
-		compare_count++;
-		cout<<"Compare Face: "<<compare_count<<endl;
-	}
 	void CompareFaceInit(){
 		int i;
 		cout<<"compare_face_data Delete"<<endl;
 		f_mtx.lock();
-		for(i=0;i<compare_count;i++){
-			//cout<<"delete 실행 전"<<endl;
-			delete face_compare[i];
-			//cout<<"delete 실행 후"<<endl;
-		}
 		cout<<"실행 완료"<<endl;
 		compare_count=0;
 		f_mtx.unlock();
@@ -122,7 +111,7 @@ void BeaconSignalReceive(int* temp){
 	socket을 통해서 큰 보드에서 사진경로와 키값 데이터를 받는 소스를 구현
 	*/
 	mbuf msg;
-	cout<<"data_receive thread create"<<endl;
+	cout<<"beacon signal receive thread create"<<endl;
 	while(1){
 		msgrcv(msgid, (void*)&msg, sizeof(mbuf), 4, 0);
 		f_mtx.lock();
@@ -133,7 +122,7 @@ void BeaconSignalReceive(int* temp){
 }
 void BeaconDisconnectReceive(int* temp){
 	mbuf msg;
-	cout<<"data_receive thread create"<<endl;
+	cout<<"beacon disconnect signal receive thread create"<<endl;
 	while(1){
 		msgrcv(msgid, (void*)&msg, sizeof(mbuf), 5,0);
 		f_mtx.lock();
@@ -144,7 +133,8 @@ void BeaconDisconnectReceive(int* temp){
 }
 void KairosCommunication(FaceManager* fm){ //타이머 종료, 일정 사진이 찍힌경우
 	cout<<"[crop]"<<endl;
-	char t_string[10] = ("%d_%d",fm->GetTryNum,fm->GetCompareCount)
+	char t_string[10];
+	sprintf(t_string,"%d_%d.jpg",fm->GetTryNum(),fm->GetCompareCount());
 	void *context = zmq_ctx_new();
 	void *responder = zmq_socket (context, ZMQ_REQ);
 	int rc = zmq_bind(responder, "tcp://*:5560");
@@ -156,11 +146,11 @@ void KairosCommunication(FaceManager* fm){ //타이머 종료, 일정 사진이 
 		strcpy(sbuff, t_string);
 
 		usleep(100);
-		cout<<"filename send : "<<sbuff"<<endl;
+		cout<<"filename send : "<<sbuff<<endl;
 		zmq_send (responder, sbuff, strlen(sbuff), 0);
 		zmq_recv (responder, buffer, 20, 0);
 	}
-	fm->AddTryNum;
+	fm->AddTryNum();
 	fm->CompareFaceInit();
 }
 #define CAM_WIDTH 480
@@ -169,15 +159,13 @@ void KairosCommunication(FaceManager* fm){ //타이머 종료, 일정 사진이 
 FaceManager* fm=new FaceManager;
 TimeManagement timer;
 
-int total_manager;
-int msg_id;
 
 int main()
 {
+    bool af=true;
     VideoCapture cap(0);
 	cap.set(CV_CAP_PROP_FRAME_WIDTH, CAM_WIDTH);
 	cap.set(CV_CAP_PROP_FRAME_HEIGHT, CAM_HEIGHT);
-	msgid = msgget(1234, IPC_CREAT);
 	
     if(!cap.isOpened()){
         cerr << "Can't Open Camera" << endl;
@@ -190,8 +178,8 @@ int main()
     CascadeClassifier face_classifier;
 
     //얼굴 인식 xml 로딩
-	thread face_receive(&BeaconSignalReceive,&total_manager);
-    thread face_receive(&BeaconDisconnectReceive,&total_manager);
+    thread beaconConnect(&BeaconSignalReceive,&total_manager);
+    thread beaconDisconnect(&BeaconDisconnectReceive,&total_manager);
     face_classifier.load("/home/pi/opencv_src/opencv/data/haarcascades/haarcascade_frontalface_default.xml");
     while(1){
         Mat frame_original;
@@ -203,7 +191,7 @@ int main()
         }catch(Exception& e){
             cerr << "Execption occurred." << endl;
         }
-        if(total_manager>0){
+        if(1){
             try{
                 Mat grayframe;
                 //gray scale로 변환
@@ -232,7 +220,10 @@ int main()
                     CV_HAAR_FIND_BIGGEST_OBJECT | CV_HAAR_SCALE_IMAGE,
                     Size(30, 30));*/
                 face_classifier.detectMultiScale(grayframe, faces, 1.1, 3, 0, Size(30, 30));
-				cout<<"얼굴 인식 전"<<endl;
+				if(af){
+					af=false;
+					cout<<"얼굴 인식 전"<<endl;
+				}
 				if(timer.TimeEnd()>100){
 				timer.TimeStartReset();
 				cout<<"Time out"<<endl;
@@ -241,52 +232,52 @@ int main()
 				faceTimeComparison.join();
 				//얼굴비교 시작
 			}
-            for(int i=0;i<faces.size();i++){
-                Point lb(faces[i].x + faces[i].width, faces[i].y + faces[i].height);
-                Point tr(faces[i].x, faces[i].y);
-//rectangle(Mat& img, Point pt1, Point pt2, const Scalar& color, int thickness=1, int lineType=8, int shift=0)
-//img 적용할 이미지
-//pt1 그릴 상자의 꼭지점
-//pt2 pt1의 반대편 꼭지점
-//color 상자의 색상
-//thickness 상자의 라인들의 두께 음수 또는 CV_FILLED를 주면 상자를 채운다.
-//lineType 라인의 모양 line()함수 확인하기
-//shift ?? Number of fractional bits in the point coordinates.
-//포인트 좌표의 분수 비트의 수??
-				cout<<"얼굴 확인 됨"<<endl;
-
-				timer.TimeStart();
-				char savefile[100];
-				cap>>frame;
-				cap>>face_image;
-				tr.x=tr.x-(lb.x-tr.x)*(0.2);
-				tr.y=tr.y-(lb.y-tr.y)*(0.3);
-				lb.x=lb.x+(lb.x-tr.x)*(0.2);
-				lb.y=lb.y+(lb.y-tr.y)*(0.3);
-				Rect rect(tr.x,tr.y,lb.x-tr.x,lb.y-tr.y);
-				face_image=face_image(rect);
-				imshow("image",face_image);
-				int try_num=fm->GetTryNum;
-				int compare_face_num=fm->GetCompareCount();
-				sprintf(savefile,"%d_%d.jpg",try_num,compare_face_num);
-				fm->AddCompareFace;
-				char compare_path[]="/home/pi/ansehen/";
-				strcat(compare_path,savefile);
-				fm->AddCompareFace(compare_path);
-				cout<<savefile<<endl;
-			
-				imwrite(savefile,face_image);
-				imshow("CCTV",frame);
-				if(compare_face_num>100){
-				timer.TimeStartReset();
-				cout<<"compare start!!"<<endl;
-				thread faceComparison(&KairosCommunication,fm);
-				faceComparison.join();
-				}
-				//sprintf(savefile,"image %d_%d.jpg",face_num,count_num++);
-				//imwrite(savefile,frame);
-				rectangle(frame_original, lb, tr, Scalar(0, 255, 0), 3, 4, 0);
-				waitKey(500);
+	    if(total_manager>0){
+	            for(int i=0;i<faces.size();i++){
+	                Point lb(faces[i].x + faces[i].width, faces[i].y + faces[i].height);
+	                Point tr(faces[i].x, faces[i].y);
+	//rectangle(Mat& img, Point pt1, Point pt2, const Scalar& color, int thickness=1, int lineType=8, int shift=0)
+	//img 적용할 이미지
+	//pt1 그릴 상자의 꼭지점
+	//pt2 pt1의 반대편 꼭지점
+	//color 상자의 색상
+	//thickness 상자의 라인들의 두께 음수 또는 CV_FILLED를 주면 상자를 채운다.
+	//lineType 라인의 모양 line()함수 확인하기
+	//shift ?? Number of fractional bits in the point coordinates.
+	//포인트 좌표의 분수 비트의 수??
+			cout<<"얼굴 확인 됨"<<endl;
+			af=true;
+			timer.TimeStart();
+			char savefile[100];
+			cap>>frame;
+			cap>>face_image;
+			tr.x=tr.x-(lb.x-tr.x)*(0.2);
+			tr.y=tr.y-(lb.y-tr.y)*(0.3);
+			lb.x=lb.x+(lb.x-tr.x)*(0.2);
+			lb.y=lb.y+(lb.y-tr.y)*(0.3);
+			Rect rect(tr.x,tr.y,lb.x-tr.x,lb.y-tr.y);
+			face_image=face_image(rect);
+			imshow("image",face_image);
+			int try_num=fm->GetTryNum();
+			int compare_face_num=fm->GetCompareCount();
+			sprintf(savefile,"%d_%d.jpg",try_num,compare_face_num);
+			fm->AddCompareCount();
+			char compare_path[]="/home/pi/ansehen/";
+			strcat(compare_path,savefile);
+			cout<<savefile<<endl;	
+			imwrite(savefile,face_image);
+			imshow("CCTV",frame);
+			if(compare_face_num>100){
+			timer.TimeStartReset();
+			cout<<"compare start!!"<<endl;
+			thread faceComparison(&KairosCommunication,fm);
+			faceComparison.join();
+			}
+			//sprintf(savefile,"image %d_%d.jpg",face_num,count_num++);
+			//imwrite(savefile,frame);
+			rectangle(frame_original, lb, tr, Scalar(0, 255, 0), 3, 4, 0);
+			waitKey(500);
+		}
             }
 //윈도우에 이미지 그리기
         imshow("Face", frame_original);
@@ -297,6 +288,7 @@ int main()
             if(waitKey(10) >= 0) break;
         }
     }
-    face_receive.join();
+    beaconConnect.join();
+    beaconDisconnect.join();
     return 0;
 }
