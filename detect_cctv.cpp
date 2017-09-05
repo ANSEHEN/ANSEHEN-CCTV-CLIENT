@@ -143,6 +143,10 @@ void KairosCommunication(FaceManager* fm){ //타이머 종료, 일정 사진이 
 	while(1){
 		if(tf){
 			cout<<"[crop]"<<endl;
+
+			fm->AddTryNum();
+			fm->CompareFaceInit();
+
 			char t_string[10];
 			sprintf(t_string,"%d_%d",fm->GetTryNum(),fm->GetCompareCount()-1);
 			char buffer [100] = {0,};		
@@ -151,8 +155,7 @@ void KairosCommunication(FaceManager* fm){ //타이머 종료, 일정 사진이 
 			cout<<"filename send : "<<buffer<<endl;
 			zmq_send (responder, buffer, strlen(buffer), 0);
 			zmq_recv (responder, buffer, sizeof(buffer), 0);
-			fm->AddTryNum();
-			fm->CompareFaceInit();
+			
 			f_mtx.lock();
 			tf=false;
 			f_mtx.unlock();
@@ -221,25 +224,21 @@ int main()
 //      새로운 cascade에서는 사용하지 않는다.
 //minSize 가능한 최소 객체 사이즈
 //maxSize 가능한 최대 객체 사이즈
-                /*face_classifier.detectMultiScale(grayframe, faces,
-                    1.1,
-                    3,
-                    CV_HAAR_FIND_BIGGEST_OBJECT | CV_HAAR_SCALE_IMAGE,
-                    Size(30, 30));*/
+                /*face_classifier.detectMultiScale(grayframe, faces,1.1,3,CV_HAAR_FIND_BIGGEST_OBJECT | CV_HAAR_SCALE_IMAGE,Size(30, 30));*/
                 face_classifier.detectMultiScale(grayframe, faces, 1.1, 3, 0, Size(30, 30));
-				if(af){
-					af=false;
-					cout<<"얼굴 인식 전"<<endl;
-				}
-				if(timer.TimeEnd()>10){
-				timer.TimeStartReset();
-				cout<<"Time out"<<endl;
-				cout<<"compare start!!"<<endl;
-				thread faceTimeComparison(&KairosCommunication,fm);
-				faceTimeComparison.join();
-				//얼굴비교 시작
-			}
-	    if(total_manager>0){
+		if(af){
+			af=false;
+			cout<<"얼굴 인식 전"<<endl;
+		}
+		if(timer.TimeEnd()>10){
+			timer.TimeStartReset();
+			cout<<"Time out"<<endl;
+			cout<<"compare start!!"<<endl;
+			f_mtx.lock();
+			tf=true;
+			f_mtx.unlock();
+		}
+	    	if(total_manager>0){
 	            for(int i=0;i<faces.size();i++){
 	                Point lb(faces[i].x + faces[i].width, faces[i].y + faces[i].height);
 	                Point tr(faces[i].x, faces[i].y);
