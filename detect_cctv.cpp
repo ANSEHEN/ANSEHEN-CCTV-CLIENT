@@ -115,7 +115,8 @@ void BeaconSignalReceive(int* temp){
 	while(1){
 		msgrcv(msgid, (void*)&msg, sizeof(mbuf), 4, 0);
 		f_mtx.lock();
-		temp++;
+		*temp=*temp+1;
+		cout<<temp<<endl;
 		f_mtx.unlock();
 		cout<<"total_manager ++"<<endl;
 	}
@@ -126,7 +127,7 @@ void BeaconDisconnectReceive(int* temp){
 	while(1){
 		msgrcv(msgid, (void*)&msg, sizeof(mbuf), 5,0);
 		f_mtx.lock();
-		temp++;
+		*temp=*temp-1;
 		f_mtx.unlock();
 	}
 	cout<<"total_manager --"<<endl;
@@ -166,7 +167,6 @@ int main()
     VideoCapture cap(0);
 	cap.set(CV_CAP_PROP_FRAME_WIDTH, CAM_WIDTH);
 	cap.set(CV_CAP_PROP_FRAME_HEIGHT, CAM_HEIGHT);
-	
     if(!cap.isOpened()){
         cerr << "Can't Open Camera" << endl;
         return -1;
