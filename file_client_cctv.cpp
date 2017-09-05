@@ -93,14 +93,14 @@ void send_message(void *t)
 	while(1)
 	{
 		msgrcv(msgid, (void*)&msg, sizeof(mbuf), type_snd ,0);
-		char buffer [40] = {0,}, sbuff[40] = {0,} ,rbuff[40]={0,};
+		char buffer [100] = {0,};
 
-		strcpy(sbuff, msg.image_addr);
-		printf("rbuff: %s\n", rbuff);
+		strcpy(buffer, msg.image_addr);
+		printf("rbuff: %s\n", buffer);
 		usleep(100);
 
-		printf("filename send : [ %s ]\n", sbuff);
-		zmq_send (responder, sbuff, strlen(sbuff), 0);
+		printf("filename send : [ %s ]\n", buffer);
+		zmq_send (responder, buffer, strlen(buffer), 0);
 
 		zmq_recv (responder, buffer, 20, 0);
 	}

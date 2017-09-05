@@ -135,7 +135,7 @@ void BeaconDisconnectReceive(int* temp){
 void KairosCommunication(FaceManager* fm){ //타이머 종료, 일정 사진이 찍힌경우
 	cout<<"[crop]"<<endl;
 	char t_string[10];
-	sprintf(t_string,"%d_%d.jpg",fm->GetTryNum(),fm->GetCompareCount());
+	sprintf(t_string,"%d_%d",fm->GetTryNum(),fm->GetCompareCount()-1);
 	void *context = zmq_ctx_new();
 	void *responder = zmq_socket (context, ZMQ_REQ);
 	int rc = zmq_bind(responder, "tcp://*:5560");
@@ -267,7 +267,7 @@ int main()
 			cout<<savefile<<endl;	
 			imwrite(savefile,face_image);
 			imshow("CCTV",frame);
-			if(compare_face_num>100){
+			if(compare_face_num>10){
 			timer.TimeStartReset();
 			cout<<"compare start!!"<<endl;
 			thread faceComparison(&KairosCommunication,fm);
