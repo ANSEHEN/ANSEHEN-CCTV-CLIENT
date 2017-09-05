@@ -20,6 +20,7 @@ using namespace cv;
 mutex f_mtx;
 int msgid= msgget(1234, IPC_CREAT);
 int total_manager;
+bool tf=false;
 
 
 class mbuf{
@@ -34,15 +35,8 @@ class FaceManager{
  private:
 	int try_num;
 	int compare_count;	//비교 얼굴 총 갯수
-	bool ft=false;
  public:
 	FaceManager():try_num(0),compare_count(0){}
-	void TrueFT(){
-		ft=true;
-	}
-	bool GetFT(){
-		return ft;
-	}
 	void AddTryNum(){
 		try_num++;
 	}
@@ -134,20 +128,24 @@ void BeaconDisconnectReceive(int* temp){
 		msgrcv(msgid, (void*)&msg, sizeof(mbuf), 5,0);
 		f_mtx.lock();
 		*temp=*temp-1;
+		if(*temp==0){
+			tf=false;
+		}
 		f_mtx.unlock();
+		cout<<"total_manager --"<<endl;
 	}
-	cout<<"total_manager --"<<endl;
 }
 void KairosCommunication(FaceManager* fm){ //타이머 종료, 일정 사진이 찍힌경우
 	cout<<"[Kairos Create]"<<endl;
+	void *context = zmq_ctx_new();
+	void *responder = zmq_socket (context, ZMQ_REQ);
+	int rc = zmq_bind(responder, "tcp://*:5560");
 	while(1){
-		if(fm->GetFT()){
+		if(tf){
 			cout<<"[crop]"<<endl;
 			char t_string[10];
 			sprintf(t_string,"%d_%d",fm->GetTryNum(),fm->GetCompareCount()-1);
-			void *context = zmq_ctx_new();
-			void *responder = zmq_socket (context, ZMQ_REQ);
-			int rc = zmq_bind(responder, "tcp://*:5560");
+			
 			char buffer [100] = {0,};
 						
 			strcpy(buffer, t_string);
@@ -191,7 +189,6 @@ int main()
     thread faceComparison(&KairosCommunication,fm);
     face_classifier.load("/home/pi/opencv_src/opencv/data/haarcascades/haarcascade_frontalface_default.xml");
     while(1){
-	cout<<"111"<<endl;
         Mat frame_original;
         Mat frame;
 		Mat face_image;
@@ -280,7 +277,9 @@ int main()
 			if(compare_face_num>10){
 				timer.TimeStartReset();
 				cout<<"compare start!!"<<endl;
-				fm->TrueFT();
+				f_mtx.lock();
+				tf=true;
+				f_mtx.unlock();
 			}
 			//sprintf(savefile,"image %d_%d.jpg",face_num,count_num++);
 			//imwrite(savefile,frame);
