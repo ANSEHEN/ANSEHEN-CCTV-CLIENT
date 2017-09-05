@@ -34,8 +34,15 @@ class FaceManager{
  private:
 	int try_num;
 	int compare_count;	//비교 얼굴 총 갯수
+	bool ft=false;
  public:
 	FaceManager():try_num(0),compare_count(0){}
+	void TrueFT(){
+		ft=true;
+	}
+	bool GetFT(){
+		return ft;
+	}
 	void AddTryNum(){
 		try_num++;
 	}
@@ -116,7 +123,6 @@ void BeaconSignalReceive(int* temp){
 		msgrcv(msgid, (void*)&msg, sizeof(mbuf), 4, 0);
 		f_mtx.lock();
 		*temp=*temp+1;
-		cout<<temp<<endl;
 		f_mtx.unlock();
 		cout<<"total_manager ++"<<endl;
 	}
@@ -133,26 +139,29 @@ void BeaconDisconnectReceive(int* temp){
 	cout<<"total_manager --"<<endl;
 }
 void KairosCommunication(FaceManager* fm){ //타이머 종료, 일정 사진이 찍힌경우
-	cout<<"[crop]"<<endl;
-	char t_string[10];
-	sprintf(t_string,"%d_%d",fm->GetTryNum(),fm->GetCompareCount()-1);
-	void *context = zmq_ctx_new();
-	void *responder = zmq_socket (context, ZMQ_REQ);
-	int rc = zmq_bind(responder, "tcp://*:5560");
-
-	for(int i=0 ; i<1;i++)
-	{
-		char buffer [40] = {0,}, sbuff[40] = {0,};
-				
-		strcpy(sbuff, t_string);
-
-		usleep(100);
-		cout<<"filename send : "<<sbuff<<endl;
-		zmq_send (responder, sbuff, strlen(sbuff), 0);
-		zmq_recv (responder, buffer, 20, 0);
+	cout<<"[Kairos Create]"<<endl;
+	while(fm->GetFT()){
+		cout<<"[crop]"<<endl;
+		char t_string[10];
+		sprintf(t_string,"%d_%d",fm->GetTryNum(),fm->GetCompareCount()-1);
+		void *context = zmq_ctx_new();
+		void *responder = zmq_socket (context, ZMQ_REQ);
+		int rc = zmq_bind(responder, "tcp://*:5560");
+	
+		for(int i=0 ; i<1;i++)
+		{
+			char buffer [100] = {0,};
+					
+			strcpy(buffer, t_string);
+	
+			usleep(100);
+			cout<<"filename send : "<<buffer<<endl;
+			zmq_send (responder, buffer, strlen(buffer), 0);
+			zmq_recv (responder, buffer, 20, 0);
+		}
+		fm->AddTryNum();
+		fm->CompareFaceInit();
 	}
-	fm->AddTryNum();
-	fm->CompareFaceInit();
 }
 #define CAM_WIDTH 480
 #define CAM_HEIGHT 300
@@ -167,6 +176,7 @@ int main()
     VideoCapture cap(0);
 	cap.set(CV_CAP_PROP_FRAME_WIDTH, CAM_WIDTH);
 	cap.set(CV_CAP_PROP_FRAME_HEIGHT, CAM_HEIGHT);
+	
     if(!cap.isOpened()){
         cerr << "Can't Open Camera" << endl;
         return -1;
@@ -180,6 +190,7 @@ int main()
     //얼굴 인식 xml 로딩
     thread beaconConnect(&BeaconSignalReceive,&total_manager);
     thread beaconDisconnect(&BeaconDisconnectReceive,&total_manager);
+    thread faceComparison(&KairosCommunication,fm);
     face_classifier.load("/home/pi/opencv_src/opencv/data/haarcascades/haarcascade_frontalface_default.xml");
     while(1){
         Mat frame_original;
@@ -224,7 +235,7 @@ int main()
 					af=false;
 					cout<<"얼굴 인식 전"<<endl;
 				}
-				if(timer.TimeEnd()>100){
+				if(timer.TimeEnd()>10){
 				timer.TimeStartReset();
 				cout<<"Time out"<<endl;
 				cout<<"compare start!!"<<endl;
@@ -268,10 +279,10 @@ int main()
 			imwrite(savefile,face_image);
 			imshow("CCTV",frame);
 			if(compare_face_num>10){
-			timer.TimeStartReset();
-			cout<<"compare start!!"<<endl;
-			thread faceComparison(&KairosCommunication,fm);
-			faceComparison.join();
+				timer.TimeStartReset();
+				cout<<"compare start!!"<<endl;
+				fm->TrueFT();
+				faceComparison.join();
 			}
 			//sprintf(savefile,"image %d_%d.jpg",face_num,count_num++);
 			//imwrite(savefile,frame);
