@@ -139,7 +139,7 @@ void recv_message(void *t)
 		                fprintf(stderr,"%s\n",mysql_error(connection));
 				exit(1);
 		        }
-		
+			
 		        //send sql query
 			
 			sprintf(query,"update USER_INFO_CCTV set result = 1 where image_add ='%s'",buffer);
@@ -150,8 +150,10 @@ void recv_message(void *t)
 		        }
 		      
 			printf("buffer : %s\n", buffer);
+			 mysql_close(connection);
 		}
 	}
+	
 }
 
 main( )
@@ -375,22 +377,13 @@ main( )
 		{
 			mbuf detect_msg;
 			detect_msg.mtype = type_out;
-			MYSQL *connection;
-		        MYSQL_RES  *sql_result;
-		        MYSQL_ROW sql_row;
+			
 			char query[BUFSIZ];
 			int result;
 			char unique_key[100];
 
 			int retval = recv(c_socket, unique_key, sizeof(unique_key),0);
 			printf("unique_key_beacon signal : %s\n",unique_key);
-
-			connection = mysql_init(NULL);
-		        if(!mysql_real_connect(connection,host,user,pw,db,0,NULL,0))
-		        {
-		                fprintf(stderr,"%s\n",mysql_error(connection));
-				exit(1);
-		        }
 		
 		        //send sql query
 			
@@ -417,6 +410,7 @@ main( )
 			printf("state error!!!");
 	}
 	close(c_socket);
+	mysql_close(connection);
 }
 //DB에    unique key, image_add(filename)저장 하기
 void dataToCCTV(char *unique_key, char * image_add)
@@ -436,7 +430,7 @@ void dataToCCTV(char *unique_key, char * image_add)
 
         //send sql query
 	
-	sprintf(query,"insert into USER_INFO_CCTV values ('%s', '%s')",unique_key,image_add);
+	sprintf(query,"insert into USER_INFO_CCTV (unique_key,image_add) values ('%s', '%s')",unique_key,image_add);
         if(mysql_query(connection,query))
         {
                 fprintf(stderr,"%s\n",mysql_error(connection));
@@ -445,6 +439,7 @@ void dataToCCTV(char *unique_key, char * image_add)
       
 	printf("unique_key : %s\n", unique_key);
 	printf("image_add : %s\n", image_add);
+	mysql_close(connection);
 }
 
 //비컨 신호가 왔을때 cctv detect 동작하라고 신호 보내기 !
