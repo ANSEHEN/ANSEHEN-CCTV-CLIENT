@@ -145,18 +145,18 @@ void KairosCommunication(FaceManager* fm){ //타이머 종료, 일정 사진이 
 			cout<<"[crop]"<<endl;
 			char t_string[10];
 			sprintf(t_string,"%d_%d",fm->GetTryNum(),fm->GetCompareCount()-1);
-			
-			char buffer [100] = {0,};
-						
+			char buffer [100] = {0,};		
 			strcpy(buffer, t_string);
-		
 			usleep(100);
 			cout<<"filename send : "<<buffer<<endl;
 			zmq_send (responder, buffer, strlen(buffer), 0);
 			zmq_recv (responder, buffer, sizeof(buffer), 0);
 			fm->AddTryNum();
 			fm->CompareFaceInit();
-		}	
+			f_mtx.lock();
+			tf=talse;
+			f_mtx.unlock();
+		}
 	}
 }
 #define CAM_WIDTH 480
