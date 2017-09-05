@@ -141,7 +141,7 @@ void BeaconDisconnectReceive(int* temp){
 void KairosCommunication(FaceManager* fm){ //타이머 종료, 일정 사진이 찍힌경우
 	cout<<"[Kairos Create]"<<endl;
 	while(1){
-			if(fm->GetFT()){
+		if(fm->GetFT()){
 			cout<<"[crop]"<<endl;
 			char t_string[10];
 			sprintf(t_string,"%d_%d",fm->GetTryNum(),fm->GetCompareCount()-1);
@@ -155,10 +155,10 @@ void KairosCommunication(FaceManager* fm){ //타이머 종료, 일정 사진이 
 			usleep(100);
 			cout<<"filename send : "<<buffer<<endl;
 			zmq_send (responder, buffer, strlen(buffer), 0);
-			zmq_recv (responder, buffer, 20, 0);
+			zmq_recv (responder, buffer, sizeof(buffer), 0);
 			fm->AddTryNum();
 			fm->CompareFaceInit();
-		}
+		}	
 	}
 }
 #define CAM_WIDTH 480
@@ -191,6 +191,7 @@ int main()
     thread faceComparison(&KairosCommunication,fm);
     face_classifier.load("/home/pi/opencv_src/opencv/data/haarcascades/haarcascade_frontalface_default.xml");
     while(1){
+	cout<<"111"<<endl;
         Mat frame_original;
         Mat frame;
 		Mat face_image;
@@ -280,7 +281,6 @@ int main()
 				timer.TimeStartReset();
 				cout<<"compare start!!"<<endl;
 				fm->TrueFT();
-				faceComparison.join();
 			}
 			//sprintf(savefile,"image %d_%d.jpg",face_num,count_num++);
 			//imwrite(savefile,frame);
@@ -299,5 +299,6 @@ int main()
     }
     beaconConnect.join();
     beaconDisconnect.join();
+    faceComparison.join();
     return 0;
 }
