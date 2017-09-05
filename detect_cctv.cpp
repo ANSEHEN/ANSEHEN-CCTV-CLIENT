@@ -154,7 +154,7 @@ void KairosCommunication(FaceManager* fm){ //타이머 종료, 일정 사진이 
 			fm->AddTryNum();
 			fm->CompareFaceInit();
 			f_mtx.lock();
-			tf=talse;
+			tf=false;
 			f_mtx.unlock();
 		}
 	}
