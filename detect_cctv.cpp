@@ -143,12 +143,10 @@ void KairosCommunication(FaceManager* fm){ //타이머 종료, 일정 사진이 
 	while(1){
 		if(tf){
 			cout<<"[crop]"<<endl;
-
-			fm->AddTryNum();
-			fm->CompareFaceInit();
-
 			char t_string[10];
 			sprintf(t_string,"%d_%d",fm->GetTryNum(),fm->GetCompareCount()-1);
+			fm->AddTryNum();
+			fm->CompareFaceInit();
 			char buffer [100] = {0,};		
 			strcpy(buffer, t_string);
 			usleep(100);
