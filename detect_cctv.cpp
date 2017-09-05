@@ -140,27 +140,25 @@ void BeaconDisconnectReceive(int* temp){
 }
 void KairosCommunication(FaceManager* fm){ //타이머 종료, 일정 사진이 찍힌경우
 	cout<<"[Kairos Create]"<<endl;
-	while(fm->GetFT()){
-		cout<<"[crop]"<<endl;
-		char t_string[10];
-		sprintf(t_string,"%d_%d",fm->GetTryNum(),fm->GetCompareCount()-1);
-		void *context = zmq_ctx_new();
-		void *responder = zmq_socket (context, ZMQ_REQ);
-		int rc = zmq_bind(responder, "tcp://*:5560");
-	
-		for(int i=0 ; i<1;i++)
-		{
+	while(1){
+			if(fm->GetFT()){
+			cout<<"[crop]"<<endl;
+			char t_string[10];
+			sprintf(t_string,"%d_%d",fm->GetTryNum(),fm->GetCompareCount()-1);
+			void *context = zmq_ctx_new();
+			void *responder = zmq_socket (context, ZMQ_REQ);
+			int rc = zmq_bind(responder, "tcp://*:5560");
 			char buffer [100] = {0,};
-					
+						
 			strcpy(buffer, t_string);
-	
+		
 			usleep(100);
 			cout<<"filename send : "<<buffer<<endl;
 			zmq_send (responder, buffer, strlen(buffer), 0);
 			zmq_recv (responder, buffer, 20, 0);
+			fm->AddTryNum();
+			fm->CompareFaceInit();
 		}
-		fm->AddTryNum();
-		fm->CompareFaceInit();
 	}
 }
 #define CAM_WIDTH 480
