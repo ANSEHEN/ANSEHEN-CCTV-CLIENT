@@ -145,8 +145,6 @@ void KairosCommunication(FaceManager* fm){ //타이머 종료, 일정 사진이 
 			cout<<"[crop]"<<endl;
 			char t_string[10];
 			sprintf(t_string,"%d_%d",fm->GetTryNum(),fm->GetCompareCount()-1);
-			fm->AddTryNum();
-			fm->CompareFaceInit();
 			char buffer [100] = {0,};		
 			strcpy(buffer, t_string);
 			usleep(100);
@@ -271,7 +269,9 @@ int main()
 			cout<<savefile<<endl;	
 			imwrite(savefile,face_image);
 			imshow("CCTV",frame);
-			if(compare_face_num>10){
+			if(compare_face_num>19){
+				fm->AddTryNum();
+				fm->CompareFaceInit();
 				timer.TimeStartReset();
 				cout<<"compare start!!"<<endl;
 				f_mtx.lock();
