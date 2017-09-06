@@ -393,18 +393,27 @@ main( )
 		                fprintf(stderr,"%s\n",mysql_error(connection));
 		                exit(1);
 		        }
-		        sql_result = mysql_use_result(connection);
+			sql_result = mysql_use_result(connection);
      			sql_row=mysql_fetch_row(sql_result);
         		result =atoi(sql_row[0]);
-			
 
+			//result = 0(stay), 1(match), 2(fail when target out)
+			if(result != 1)
+			{
+				sprintf(query,"update USER_INFO_CCTV set result = 2 where unique_key ='%s'",unique_key);
+		        
+				if(mysql_query(connection,query))
+			        {
+			                fprintf(stderr,"%s\n",mysql_error(connection));
+			                exit(1);
+				}
+				result = 2;
+		        }
+		
 			printf("result : %d\n", result);
-			
 
 			msgsnd(msgid, (void*)&detect_msg, sizeof(mbuf), 0);
 			send(c_socket, &result, sizeof(result), 0);
-			
-			
 		}
 		else
 			printf("state error!!!");
