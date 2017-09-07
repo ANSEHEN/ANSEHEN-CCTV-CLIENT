@@ -114,6 +114,7 @@ def crop_thread():
                     crop_encodings[i] = (face_recognition.face_encodings(crop_image)[0])
                 except IndexError:
                     print('[CROP] cannot encoding face : ', i)
+                    os.remove(crop_name[i])
 
     # [compare thread]
     # ------------------------------------------------------------------------------------
