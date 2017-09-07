@@ -114,7 +114,7 @@ def crop_thread():
                     crop_encodings[i] = (face_recognition.face_encodings(crop_image)[0])
                 except IndexError:
                     print('[CROP] cannot encoding face : ', i)
-                    os.remove(crop_name[i])
+                os.remove(crop_name[i])
 
     # [compare thread]
     # ------------------------------------------------------------------------------------
@@ -142,8 +142,8 @@ def crop_thread():
                             my_mutex1.release()
              
                 crop_encodings.clear()
-                for j in range(len(crop_name)):
-                    os.remove(crop_name[j])
+                #for j in range(len(crop_name)):
+                #    os.remove(crop_name[j])
                     
             if len(crop_encodings) == 0:
                 msg = 'send_again'
