@@ -122,6 +122,9 @@ void BeaconSignalReceive(int* temp){
 	while(1){
 		msgrcv(msgid, (void*)&msg, sizeof(mbuf), 4, 0);
 		f_mtx.lock();
+		if(*temp == 0){
+			detect_msgid = msgget(4321, IPC_CREAT);
+		}
 		*temp=*temp+1;
 		f_mtx.unlock();
 		cout<<"total_manager ++"<<endl;
