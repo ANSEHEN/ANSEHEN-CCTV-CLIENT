@@ -106,7 +106,10 @@ def crop_thread():
                 print("[CROP] filename : ", crop_name[i])       
                 #crop_encoding = {}
                 print("[CROP] try : ", crop_try ," , encoding : ", i)
-                crop_image = face_recognition.load_image_file(crop_name[i])
+                try:
+                    crop_image = face_recognition.load_image_file(crop_name[i])
+                except FileNotFoundError:
+                    print('[CROP]wrong filename')
                 try:
                     crop_encodings[i] = (face_recognition.face_encodings(crop_image)[0])
                 except IndexError:
