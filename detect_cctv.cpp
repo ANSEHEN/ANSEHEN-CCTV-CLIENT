@@ -137,7 +137,7 @@ void BeaconDisconnectReceive(int* temp){
 		cout<<"total_manager --"<<endl;
 		if (*temp==0){
 			system("/bin/rm *.jpg");
-			if(msgctl(detect_msgid,IPC_RMID,&buf)==-1{
+			if(msgctl(detect_msgid,IPC_RMID,&buf)==-1){
 				perror("msgctl:msgctl failed");
 				exit(1);
 				
