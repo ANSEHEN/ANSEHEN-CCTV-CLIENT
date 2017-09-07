@@ -150,7 +150,7 @@ void recv_message(void *t)
 		        }
 		      
 			printf("buffer : %s\n", buffer);
-			 mysql_close(connection);
+			mysql_close(connection);
 		}
 	}
 	
@@ -396,6 +396,7 @@ main( )
 			sql_result = mysql_use_result(connection);
      			sql_row=mysql_fetch_row(sql_result);
         		result =atoi(sql_row[0]);
+			mysql_free_result(sql_result);
 
 			//result = 0(stay), 1(match), 2(fail when target out)
 			if(result != 1)
@@ -408,6 +409,7 @@ main( )
 			                exit(1);
 				}
 				result = 2;
+				printf("result is not 1.\n");
 		        }
 		
 			printf("result : %d\n", result);
@@ -439,7 +441,7 @@ void dataToCCTV(char *unique_key, char * image_add)
 
         //send sql query
 	
-	sprintf(query,"insert into USER_INFO_CCTV (unique_key,image_add) values ('%s', '%s')",unique_key,image_add);
+	sprintf(query,"insert into USER_INFO_CCTV (unique_key,image_add,result) values ('%s', '%s',0)",unique_key,image_add);
         if(mysql_query(connection,query))
         {
                 fprintf(stderr,"%s\n",mysql_error(connection));
