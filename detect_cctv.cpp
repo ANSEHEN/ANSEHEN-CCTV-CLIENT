@@ -19,10 +19,12 @@ using namespace cv;
 
 mutex f_mtx;
 int msgid= msgget(1234, IPC_CREAT);
+int detect_msgid = msgget(4321, IPC_CREAT);
+
 int total_manager;
 bool tf=false;
 
-
+const int type_snd = 9;
 class mbuf{
 	public :
 	long mtype;
@@ -30,12 +32,16 @@ class mbuf{
 	char unique_key[100];	//안씀
 	char image_addr[200];	//안씀
 };
+class detect_mbuf{
+	public:
+	long mtype;
+	char buf[100];
+};
 
 class FaceManager{
- private:
+ public:
 	int try_num;
 	int compare_count;	//비교 얼굴 총 갯수
- public:
 	FaceManager():try_num(0),compare_count(0){}
 	void AddTryNum(){
 		try_num++;
@@ -141,21 +147,27 @@ void KairosCommunication(FaceManager* fm){ //타이머 종료, 일정 사진이 
 	void *responder = zmq_socket (context, ZMQ_REQ);
 	int rc = zmq_bind(responder, "tcp://*:5560");
 	while(1){
-		if(tf){
+		//if(tf){
+			//rcv mbuffer 0_20
+			
 			cout<<"[crop]"<<endl;
-			char t_string[10];
-			sprintf(t_string,"%d_%d",fm->GetTryNum(),fm->GetCompareCount()-1);
+			detect_mbuf d_buff;
+			msgrcv(detect_msgid, (void*)&d_buff, sizeof(d_buff), type_snd, 0);
+
+			//char t_string[10];
+			//sprintf(t_string,"%d_%d",fm->GetTryNum(),fm->GetCompareCount()-1);
 			char buffer [100] = {0,};		
-			strcpy(buffer, t_string);
+			strcpy(buffer, d_buff.buf);
+
 			usleep(100);
-			cout<<"filename send : "<<buffer<<endl;
+			cout<<"filename send : "<<mbuffer<<endl;
 			zmq_send (responder, buffer, strlen(buffer), 0);
 			zmq_recv (responder, buffer, sizeof(buffer), 0);
 			
-			f_mtx.lock();
-			tf=false;
-			f_mtx.unlock();
-		}
+			//f_mtx.lock();
+			//tf=false;
+			//f_mtx.unlock();
+		//}
 	}
 }
 #define CAM_WIDTH 480
@@ -167,6 +179,7 @@ TimeManagement timer;
 
 int main()
 {
+    detect_mbuf d_buff;
     bool af=true;
     VideoCapture cap(0);
 	cap.set(CV_CAP_PROP_FRAME_WIDTH, CAM_WIDTH);
@@ -229,10 +242,20 @@ int main()
 		if(timer.TimeEnd()>10){
 			timer.TimeStartReset();
 			cout<<"Time out"<<endl;
-			cout<<"compare start!!"<<endl;
+			d_buff.mtype = type_snd;
+			sprintf(d_buff.buf,"%d_%d",fm->GetTryNum(),fm->GetCompareCount()-1);
+			msgsnd(detect_msgid, (void*)&d_buff, sizeof(d_buff), 0);
+			
+			fm->AddTryNum();
+			fm->CompareFaceInit();
+			
+			
+			cout<<"[timer out]compare start!!"<<endl;
+			/*
 			f_mtx.lock();
 			tf=true;
 			f_mtx.unlock();
+			*/
 		}
 	    	if(total_manager>0){
 	            for(int i=0;i<faces.size();i++){
@@ -270,13 +293,21 @@ int main()
 			imwrite(savefile,face_image);
 			imshow("CCTV",frame);
 			if(compare_face_num>19){
+				//snd buffer<- 0_20 1_20
+				
+				d_buff.mtype = type_snd;
+				sprintf(d_buff.buf,"%d_%d",fm->GetTryNum(),fm->GetCompareCount()-1);
+				msgsnd(detect_msgid, (void*)&d_buff, sizeof(d_buff), 0);
+
 				fm->AddTryNum();
 				fm->CompareFaceInit();
 				timer.TimeStartReset();
-				cout<<"compare start!!"<<endl;
+				cout<<"[count out]compare start!!"<<endl;
+				/*
 				f_mtx.lock();
 				tf=true;
 				f_mtx.unlock();
+				*/
 			}
 			//sprintf(savefile,"image %d_%d.jpg",face_num,count_num++);
 			//imwrite(savefile,frame);
