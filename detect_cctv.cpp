@@ -134,11 +134,17 @@ void BeaconDisconnectReceive(int* temp){
 		msgrcv(msgid, (void*)&msg, sizeof(mbuf), 5,0);
 		f_mtx.lock();
 		*temp=*temp-1;
-		if(*temp==0){
-			tf=false;
+		cout<<"total_manager --"<<endl;
+		if (*temp==0){
+			system("/bin/rm *.jpg");
+			if(msgctl(detect_msgid,IPC_RMID,&buf)==-1{
+				perror("msgctl:msgctl failed");
+				exit(1);
+				
+			}
+			detect_msgid = msgget(4321, IPC_CREAT);
 		}
 		f_mtx.unlock();
-		cout<<"total_manager --"<<endl;
 	}
 }
 void KairosCommunication(FaceManager* fm){ //타이머 종료, 일정 사진이 찍힌경우
