@@ -160,7 +160,7 @@ void KairosCommunication(FaceManager* fm){ //타이머 종료, 일정 사진이 
 			strcpy(buffer, d_buff.buf);
 
 			usleep(100);
-			cout<<"filename send : "<<mbuffer<<endl;
+			cout<<"filename send : "<<buffer<<endl;
 			zmq_send (responder, buffer, strlen(buffer), 0);
 			zmq_recv (responder, buffer, sizeof(buffer), 0);
 			
