@@ -119,6 +119,9 @@ void recv_message(void *t)
 	char query[BUFSIZ];
 	char result;
 
+	mbuf detect_msg;
+	detect_msg.mtype = type_out;
+
 	while(1)
 	{
 		//msgrcv(msgid, (void*)&msg, sizeof(mbuf), type_rcv ,0);
@@ -146,9 +149,9 @@ void recv_message(void *t)
 		        if(mysql_query(connection,query))
 		        {
 		                fprintf(stderr,"%s\n",mysql_error(connection));
-		                exit(1);
+		                exit(1);	
 		        }
-		      
+			msgsnd(msgid, (void*)&detect_msg, sizeof(mbuf), 0);//detect 동작 중지
 			printf("buffer : %s\n", buffer);
 			mysql_close(connection);
 		}
@@ -410,11 +413,13 @@ main( )
 				}
 				result = 2;
 				printf("result is not 1.\n");
+				msgsnd(msgid, (void*)&detect_msg, sizeof(mbuf), 0);//detect 동작 중지
+				
 		        }
 		
 			printf("result : %d\n", result);
 
-			msgsnd(msgid, (void*)&detect_msg, sizeof(mbuf), 0);
+			
 			send(c_socket, &result, sizeof(result), 0);
 		}
 		else
