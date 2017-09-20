@@ -330,7 +330,6 @@ int main()
 			cerr << "Exception occurred. face" << endl;
         }
 //키 입력 대기
-            if(waitKey(10) >= 0) break;
         }
     }
     beaconConnect.join();
