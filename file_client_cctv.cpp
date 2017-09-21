@@ -124,6 +124,7 @@ void recv_message(void *t)
 	char result;
 	
 	int i=0;
+	wiringPiSetup();
 	pinMode(LED0,OUTPUT);	
 
 	mbuf detect_msg;
@@ -140,15 +141,17 @@ void recv_message(void *t)
 		if (strlen(buffer) > 0)
 		{
 			printf("매치 결과 : %s\n", buffer);
-			while(i<=10)
-			{
+			//while(i<=10)
+			//{
+				printf("LED시작\n");
 				digitalWrite(LED0,1);
-				delay(1000);
+				delay(5000);
 				digitalWrite(LED0,0);
-				i++;
-			}
+				//delay(100);
+				//i++;
+			//}
 			i=0;
-
+			printf("LED while문 밖에\n");
 
 			
 			//db로 자료 올리기(USER_INFO_CCTV테이블에 result에 넣기 1= match 0=mismatch)
