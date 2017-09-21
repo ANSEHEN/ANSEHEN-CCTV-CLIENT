@@ -9,6 +9,8 @@
 #include <mysql.h>
 #include <iostream>
 
+#include <wiringPi.h>
+
 #include <sys/ipc.h>
 #include <sys/msg.h>
 
@@ -44,6 +46,8 @@ class mbuf {
 #define IPADDR "192.168.1.49"
 #define BUFSIZE 1024
 #define ARG_MAX 6
+#define LED0 1 //BCM_GPIO 18
+
 
 const int type_beacon = 1;
 const int type_snd = 2;
@@ -118,6 +122,9 @@ void recv_message(void *t)
         MYSQL_ROW sql_row;
 	char query[BUFSIZ];
 	char result;
+	
+	int i=0;
+	pinMode(LED0,OUTPUT);	
 
 	mbuf detect_msg;
 	detect_msg.mtype = type_out;
@@ -133,6 +140,16 @@ void recv_message(void *t)
 		if (strlen(buffer) > 0)
 		{
 			printf("매치 결과 : %s\n", buffer);
+			while(i<=10)
+			{
+				digitalWrite(LED0,1);
+				delay(1000);
+				digitalWrite(LED0,0);
+				i++;
+			}
+			i=0;
+
+
 			
 			//db로 자료 올리기(USER_INFO_CCTV테이블에 result에 넣기 1= match 0=mismatch)
 		
@@ -467,3 +484,4 @@ void SendMsgToCCTV(char *t_unique_key, char * t_image_add)
 	strcpy(msg.image_addr, t_image_add);
 	msgsnd(msgid, (void*)&msg, sizeof(mbuf), 0);
 }
+
