@@ -44,6 +44,7 @@ class mbuf {
 
 #define PORT 9002
 #define IPADDR "192.168.1.49"
+//#define IPADDR "192.168.0.10"
 #define BUFSIZE 1024
 #define ARG_MAX 6
 #define LED0 1 //BCM_GPIO 18
@@ -179,7 +180,7 @@ void recv_message(void *t)
 	
 }
 
-main( )
+int main( )
 {
 	
 	struct sockaddr_in c_addr;

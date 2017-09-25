@@ -199,7 +199,7 @@ int main()
         return -1;
     }
 
-    namedWindow("Face", 1);
+  //  namedWindow("Face", 1);
 
     //cascadeclassifier 클랙스
     CascadeClassifier face_classifier;
@@ -291,7 +291,7 @@ int main()
 			lb.y=lb.y+(lb.y-tr.y)*(0.3);
 			Rect rect(tr.x,tr.y,lb.x-tr.x,lb.y-tr.y);
 			face_image=face_image(rect);
-			imshow("image",face_image);
+			//imshow("image",face_image);
 			int try_num=fm->GetTryNum();
 			int compare_face_num=fm->GetCompareCount();
 			sprintf(savefile,"%d_%d.jpg",try_num,compare_face_num);
@@ -300,7 +300,7 @@ int main()
 			strcat(compare_path,savefile);
 			cout<<savefile<<endl;	
 			imwrite(savefile,face_image);
-			imshow("CCTV",frame);
+			//imshow("CCTV",frame);
 			if(compare_face_num>19){
 				//snd buffer<- 0_20 1_20
 				
@@ -325,7 +325,7 @@ int main()
 		}
             }
 //윈도우에 이미지 그리기
-        imshow("Face", frame_original);
+        //imshow("Face", frame_original);
         }catch(Exception& e){
 			cerr << "Exception occurred. face" << endl;
         }
