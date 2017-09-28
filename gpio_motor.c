@@ -13,51 +13,51 @@ int main(){
 	char h = (1<<4) + (1<<7);
 	
 	int fd;
-	int t=0;
+	int t=-60;
 	fd = open("/dev/gpiomotor", O_RDWR);
 	
 	while(1){
-		if(t<=250)
+		if(t<=0)
 		{
 			write(fd, &a, sizeof(char), NULL);
-			usleep(10000);
+			usleep(15000);
 			write(fd, &b, sizeof(char), NULL);
-			usleep(10000);
+			usleep(15000);
 			write(fd, &c, sizeof(char), NULL);
-			usleep(10000);
+			usleep(15000);
 			write(fd, &d, sizeof(char), NULL);
-			usleep(10000);
+			usleep(15000);
 			write(fd, &e, sizeof(char), NULL);
-			usleep(10000);
+			usleep(15000);
 			write(fd, &f, sizeof(char), NULL);
-			usleep(10000);
+			usleep(15000);
 			write(fd, &g, sizeof(char), NULL);
-			usleep(10000);
+			usleep(15000);
 			write(fd, &h, sizeof(char), NULL);
-			usleep(10000);
+			usleep(15000);
 			t++;
 		}
 		else
 		{
 			write(fd, &h, sizeof(char), NULL);
-			usleep(10000);
+			usleep(15000);
 			write(fd, &g, sizeof(char), NULL);
-			usleep(10000);
+			usleep(15000);
 			write(fd, &f, sizeof(char), NULL);
-			usleep(10000);
+			usleep(15000);
 			write(fd, &e, sizeof(char), NULL);
-			usleep(10000);
+			usleep(15000);
 			write(fd, &d, sizeof(char), NULL);
-			usleep(10000);
+			usleep(15000);
 			write(fd, &c, sizeof(char), NULL);
-			usleep(10000);
+			usleep(15000);
 			write(fd, &b, sizeof(char), NULL);
-			usleep(10000);
+			usleep(15000);
 			write(fd, &a, sizeof(char), NULL);
-			usleep(10000);
+			usleep(15000);
 			t++;
-				if(t==500)
-					t=0;
+				if(t==120)
+					t=-120;
 		}
 	}
 	
